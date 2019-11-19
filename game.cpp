@@ -40,7 +40,7 @@ void Game::Mutate()
 		//Pure Reroll
 		circArray[t].X = Rand( 600 );
 		circArray[t].Y = Rand( 600 );
-		circArray[t].R = Rand( 30 );
+		circArray[t].R = Rand( 30 ) + 10;
 		circArray[t].C = RandomUInt();
 		break;
 	case 1:
@@ -98,7 +98,7 @@ void Game::Init()
 	{
 		circArray[i].X = Rand( 600 );
 		circArray[i].Y = Rand( 600 );
-		circArray[i].R = Rand( 30 );
+		circArray[i].R = Rand( 30 ) + 10;
 		circArray[i].C = RandomUInt();
 	}
 
@@ -131,10 +131,12 @@ void Game::Tick( float deltaTime )
 
 	afterFit = DetermineFitness();
 	if ( afterFit > currentFit ) //Bepalen of het beter was
+	{
 		RestoreBackup();
-
-	uint f = DetermineFitness();
-	printf("%u\n", f);
+		printf( "%u\n", currentFit );
+	}
+	else
+		printf( "%u\n", afterFit );	
 	
 }
 
@@ -150,7 +152,7 @@ uint Game::DetermineFitness() {
 			uint g = (test & 0x00FF00) >> 8;
 			uint b = test & 0x0000FF;
 
-			uint fit = ( r * r + g * g + b * b ) >> 8;
+			uint fit = ( r * r + g * g * 2 + b * b ) >> 8;
 			sum += fit;
 		}
 
