@@ -120,17 +120,17 @@ void Game::Shutdown()
 void Game::Tick( float deltaTime )
 {
 	
-	DrawScene( screen );
+	DrawScene( screen ); //Eerste keer tekenen
 	
 	currentFit = DetermineFitness();
 	CreateBackup();
 
-	Mutate();
+	Mutate(); //Muteren
 
-	DrawScene( screen );
+	DrawScene( screen ); //Tweede keer tekenen
 
 	afterFit = DetermineFitness();
-	if ( afterFit > currentFit )
+	if ( afterFit > currentFit ) //Bepalen of het beter was
 		RestoreBackup();
 
 	uint f = DetermineFitness();
