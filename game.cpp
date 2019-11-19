@@ -15,6 +15,10 @@ Circle before[CIRCLES];
 uint currentFit = 0;
 uint afterFit = 0;
 
+static Sprite goose( new Surface( "assets/mario.png" ), 1 );
+static Sprite rotatingGun( new Surface( "assets/aagun.tga" ), 36 );
+static int frame = 0;
+
 void CreateBackup()
 {
 	for ( int i = 0; i < CIRCLES; i++ )
@@ -109,9 +113,6 @@ void Game::Shutdown()
 }
 
 
-static Sprite goose( new Surface( "assets/mario.png" ), 1 );
-static Sprite rotatingGun( new Surface( "assets/aagun.tga" ), 36 );
-static int frame = 0;
 
 // -----------------------------------------------------------
 // Main application tick function
