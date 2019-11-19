@@ -11,14 +11,26 @@ struct Circle
 };
 
 Circle circArray[CIRCLES];
-Circle before;
+Circle before[CIRCLES];
 uint currentFit = 0;
 uint afterFit = 0;
 
-void Game::Mutate(int t)
+void CreateBackup()
 {
-	before = circArray[t];
-	switch ( (int)Rand( 4 ) )
+	for ( int i = 0; i < CIRCLES; i++ )
+		before[i] = circArray[i];
+}
+
+void RestoreBackup() 
+{
+	for ( int i = 0; i < CIRCLES; i++ )
+		circArray[i] = before[i];
+}
+
+void Game::Mutate()
+{
+	int t = Rand( CIRCLES );
+	switch ( (int)Rand( 5 ) )
 	{
 	case 0:
 		//Pure Reroll
@@ -40,6 +52,12 @@ void Game::Mutate(int t)
 		//Resize
 		circArray[t].R += ( Rand( 10 ) - 5 );
 		break;
+	case 4: 
+		//Swap order
+		int q = Rand( CIRCLES );
+		Circle temp = circArray[t];
+		circArray[t] = circArray[q];
+		circArray[q] = temp;
 	}
 }
 
@@ -59,8 +77,19 @@ void DrawCircle(Circle c, Surface *screen)
 		}
 }
 
+void DrawScene(Surface *screen)
+{
+	screen->Clear( 0 );
+	goose.SetFrame( 0 );
+	goose.Draw( screen, 600, 0 );
+
+	for ( int i = 0; i < CIRCLES; i++ )
+		DrawCircle( circArray[i], screen );
+}
+
 void Game::Init()
 {
+
 	for ( int i = 0; i < CIRCLES; i++ )
 	{
 		circArray[i].X = Rand( 600 );
@@ -89,29 +118,19 @@ static int frame = 0;
 // -----------------------------------------------------------
 void Game::Tick( float deltaTime )
 {
-	screen->Clear( 0 );
-	goose.SetFrame( 0 );
-	goose.Draw( screen, 600, 0 );
-
-	for ( int i = 0; i < CIRCLES; i++ )
-		DrawCircle( circArray[i], screen );
-
+	
+	DrawScene( screen );
 	
 	currentFit = DetermineFitness();
+	CreateBackup();
 
-	int t = Rand( CIRCLES );
-	Mutate( t );
+	Mutate();
 
-	screen->Clear( 0 );
-	goose.SetFrame( 0 );
-	goose.Draw( screen, 600, 0 );
-
-	for ( int i = 0; i < CIRCLES; i++ )
-		DrawCircle( circArray[i], screen );
+	DrawScene( screen );
 
 	afterFit = DetermineFitness();
 	if ( afterFit > currentFit )
-		circArray[t] = before;
+		RestoreBackup();
 
 	uint f = DetermineFitness();
 	printf("%u\n", f);
@@ -125,12 +144,12 @@ uint Game::DetermineFitness() {
 	for (int i = 0; i < 600; i++)
 		for (int j = 0; j < 600; j++) 
 		{
-			uint test = p[i + j * 1200] - p[i + 600 + j * 1200];
+			uint test = p[i + j * SCRWIDTH] - p[i + 600 + j * SCRWIDTH];
 			uint r = (test & 0xFF0000) >> 16;
 			uint g = (test & 0x00FF00) >> 8;
 			uint b = test & 0x0000FF;
 
-			uint fit = ( r * r + g * g * 3 + b * b ) >> 8;
+			uint fit = ( r * r + g * g + b * b ) >> 8;
 			sum += fit;
 		}
 

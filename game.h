@@ -15,7 +15,7 @@ public:
 	void KeyUp( int key ) { /* implement if you want to handle keys */ }
 	void KeyDown( int key ) { /* implement if you want to handle keys */ }
 	uint DetermineFitness();
-	void Mutate( int t );
+	void Mutate();
 	
 
   private:
