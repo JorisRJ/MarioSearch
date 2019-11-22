@@ -43,7 +43,7 @@ typedef unsigned int uint;
 
 // deterministic rng
 //static uint seed = 0x12345678;
-static uint seed = 0xfd93a1;
+static uint seed = 0xfd91a1;
 inline uint RandomUInt() { seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5; return seed; }
 inline float RandomFloat() { return RandomUInt() * 2.3283064365387e-10f; }
 inline float Rand( float range ) { return RandomFloat() * range; }
