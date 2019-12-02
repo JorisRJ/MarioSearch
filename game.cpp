@@ -7,7 +7,7 @@
 // -----------------------------------------------------------
 constexpr uint CIRCLES = 128;
 constexpr uint THREADS = 8; //KIEK UIT, groter dan 8 crasht ie ivm seeds
-constexpr uint MUTATES = 3;
+constexpr uint MUTATES = 2;
 constexpr int SURFWIDTH = 600;
 
 struct Circle
@@ -173,7 +173,8 @@ void DrawScene( Surface *screen, int index )
 
 void PictureMutate( int index )
 {
-	for ( int i = 0; i < (int)Rfloat(index, MUTATES); i++ )
+	float imax = Rfloat( index, MUTATES ) + 1;
+	for ( float i = 0; i < imax; i++ )
 		Mutate( index );
 
 	DrawScene( screens[index] , index);
