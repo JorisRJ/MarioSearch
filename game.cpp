@@ -5,38 +5,52 @@
 // -----------------------------------------------------------
 // Initialize the application
 // -----------------------------------------------------------
-constexpr uint CIRCLES = 128;
+static Sprite copySprite( new Surface( "assets/parrot.png" ), 1 );
+static int frame = 0;
+
+constexpr uint TrWH = 24;
+constexpr uint VertWH = TrWH + 1;
+constexpr uint VertCount = VertWH * VertWH;
+constexpr uint TRIANGLES = TrWH * TrWH * 2;
 constexpr uint THREADS = 8; //KIEK UIT, groter dan 8 crasht ie ivm seeds
 constexpr uint MUTATES = 2;
 constexpr int SURFWIDTH = 600;
 
-struct Circle
+struct pt
 {
-	float X, Y, R;
-	uint C;
+	int x;
+	int y;
+
+	pt( int a, int b ) { x = a, y = b; }
+	pt() { x = 0, y = 0; }
 };
 
-Circle circArray[THREADS + 1][CIRCLES]; //backup is de laatste
-//Circle before[CIRCLES];
+pt operator+( const pt &a, const pt &b ) { return pt( a.x + b.x, a.y + b.y ); }
+
+uint colors[THREADS + 1][TRIANGLES];
+
+pt vertices[THREADS + 1][VertCount];
+int triIndexes[TRIANGLES * 3];
+
 Surface *screens[THREADS], *mainImage;
 uint fitness[THREADS + 1];
 thread threads[THREADS];
 uint seeds[8] = {0x1bd53af8, 0x178dacf0, 0x65afbe35, 0x123abcf3, 0x83abddc7, 0xcd8efa3b, 0x12345679, 0x98765432};
-//stack<int> rngNums[THREADS];
-stack<int> rngNums;
 
-int asdf = 5;
-static Sprite goose( new Surface( "assets/mario.png" ), 1 );
-static int frame = 0;
+
 
 void CreateBackup( int index )
 {
 	if ( index == THREADS ) return;
 
-	for ( int i = 0; i < CIRCLES; i++ )
+	for ( int i = 0; i < VertCount; i++ )
 	{
-		circArray[THREADS][i] = circArray[index][i];
+		vertices[THREADS][i] = vertices[index][i];
 	}
+
+	for ( int i = 0; i < TRIANGLES; i++ )
+		colors[THREADS][i] = colors[index][i];
+
 	fitness[THREADS] = fitness[index];
 }
 
@@ -48,27 +62,17 @@ uint XorShift( int index )
 	return seeds[index];
 }
 
-/**uint XorShift(int index) 
-{
-	uint num = (uint)rngNums[index].top();
-	rngNums[index].pop();
-	return num;
-}*/
-
-/*uint XorShift( int index )
-{
-	uint num = (uint)rngNums.top();
-	rngNums.pop();
-	return num;
-}*/
-
 float Rfloat( int index, float range ) { return XorShift( index ) * 2.3283064365387e-10f * range; }
 
 void RestoreBackup()
 {
-	for ( int i = 0; i < CIRCLES; i++ )
+	for ( int i = 0; i < VertCount; i++ )
 		for ( int j = 0; j < THREADS; j++ )
-			circArray[j][i] = circArray[THREADS][i];
+			vertices[j][i] = vertices[THREADS][i];
+
+	for ( int i = 0; i < TRIANGLES; i++ )
+		for ( int j = 0; j < THREADS; j++ )
+			colors[j][i] = colors[THREADS][i];
 }
 
 uint DetermineFitness( Surface *surf, Surface *ogpic )
@@ -77,21 +81,16 @@ uint DetermineFitness( Surface *surf, Surface *ogpic )
 	Pixel *pog = ogpic->GetBuffer();
 	uint sum = 0;
 
-	for ( int i = 0; i < 600; i++ )
-		for ( int j = 0; j < 600; j++ )
+	for ( int i = 0; i < SURFWIDTH; i++ )
+		for ( int j = 0; j < SURFWIDTH; j++ )
 		{
-			/*uint test = p[i + j * SCRWIDTH] - p[i + 600 + j * SCRWIDTH];
-			uint r = (test & 0xFF0000) >> 16;
-			uint g = (test & 0x00FF00) >> 8;
-			uint b = test & 0x0000FF;*/
-
 			uint test = p[i + j * SURFWIDTH];
 			uint og = pog[i + j * SURFWIDTH];
+
 			int r = ( ( test & 0xFF0000 ) >> 16 ) - ( ( og & 0xFF0000 ) >> 16 );
 			int g = ( ( test & 0x00FF00 ) >> 8 ) - ( ( og & 0x00FF00 ) >> 8 );
 			int b = ( test & 0x0000FF ) - ( og & 0x0000FF );
 
-			//uint fit = ( r * r+ g * g * 2 + b * b ) >> 8;
 			uint fit = abs( r ) + abs( g ) + abs( b );
 			sum += fit;
 		}
@@ -101,74 +100,125 @@ uint DetermineFitness( Surface *surf, Surface *ogpic )
 
 void Mutate( int index )
 {
-	int t = (int)Rfloat( index, CIRCLES );
-	int q;
-	switch ( (int)Rfloat( index, 8 ) )
+	int tri;
+	pt displacement, ogpos, newpos;
+	switch ( (int)Rfloat( index, 3 ) )
 	{
 	case 0:
-		//Pure Reroll
-		circArray[index][t].X = Rfloat( index, 600 );
-		circArray[index][t].Y = Rfloat( index, 600 );
-		circArray[index][t].R = Rfloat( index, 30 ) + 10;
-		circArray[index][t].C = XorShift( index );
+		//Displace
+		tri = (int)Rfloat( index, VertCount );
+		displacement = pt( Rfloat( index, 6 ) - 3, Rfloat( index, 6 ) - 3 );
+		ogpos = vertices[index][tri];
+		newpos = pt( clamp( ogpos.x + displacement.x, 0, SURFWIDTH - 1 ), clamp( ogpos.y + displacement.y, 0, SURFWIDTH - 1 ) );
+		vertices[index][tri] = newpos;
+
 		break;
 	case 1:
-		//Kleine move
-		circArray[index][t].X += Rfloat( index, 10 ) - 5;
-		circArray[index][t].Y += Rfloat( index, 10 ) - 5;
+		//reroll color
+		colors[index][(int)Rfloat( index, TRIANGLES )] = XorShift( index );
 		break;
 	case 2:
-		//Recolor
-		circArray[index][t].C += ( ( (int)( Rfloat( index, 10 ) - 5 ) << 16 ) + ( (int)( Rfloat( index, 10 ) - 5 ) << 8 ) + (int)( Rfloat( index, 10 ) - 5 ) );
-		break;
-	case 3:
-		//Resize
-		circArray[index][t].R += ( Rfloat( index, 10 ) - 5 );
-		break;
-	case 4:
-		//Swap order
-		q = Rfloat( index, CIRCLES );
-		Circle temp = circArray[index][t];
-		circArray[index][t] = circArray[index][q];
-		circArray[index][q] = temp;
-		break;
-	case 5:
-		//Nieuwe kleur
-		circArray[index][t].C = XorShift( index );
-		break;
-	case 6:
-		//Grote move
-		circArray[index][t].X = Rfloat( index, 600 );
-		circArray[index][t].Y = Rfloat( index, 600 );
-		break;
-	case 7:
-		//Radius reroll
-		circArray[index][t].R = Rfloat( index, 30 ) + 10;
+		//slight color adjust
+		colors[index][(int)Rfloat( index, TRIANGLES )] += ( ( (int)( Rfloat( index, 10 ) - 5 ) << 16 ) + ( (int)( Rfloat( index, 10 ) - 5 ) << 8 ) + (int)( Rfloat( index, 10 ) - 5 ) );
 		break;
 	}
 }
 
-void DrawCircle( Circle c, Surface *screen, int width )
+void DrawTriangle( pt q1, pt q2, pt q3, uint col, Surface *screen, int width )
 {
+	pt top, mid, bot;
+	if ( q1.y < q2.y )
+		if ( q1.y < q3.y )
+		{
+			top = q1;
+			if ( q2.y < q3.y )
+			{
+				mid = q2;
+				bot = q3;
+			}
+			else
+			{
+				mid = q3;
+				bot = q2;
+			}
+		}
+		else
+		{
+			top = q3;
+			mid = q1;
+			bot = q2;
+		}
+	else if ( q2.y < q3.y )
+	{
+		top = q2;
+		if ( q1.y < q3.y )
+		{
+			mid = q1;
+			bot = q3;
+		}
+		else
+		{
+			mid = q3;
+			bot = q1;
+		}
+	}
+	else
+	{
+		top = q3;
+		mid = q2;
+		bot = q1;
+	}
+
+	/*float left, right;
+	left = min( q1.x, min(q2.x, q3.x) );
+	right = max( q1.x, max(q2.x, q3.x) );*/
 
 	Pixel *sc = screen->GetBuffer();
-	for ( float x = max( 0, (int)( c.X - c.R ) ); x < min( SURFWIDTH, (int)( c.X + c.R ) ); x++ )
-		for ( float y = max( 0, (int)( c.Y - c.R ) ); y < min( SURFWIDTH, (int)( c.Y + c.R ) ); y++ )
-		{
-			float posx = c.X - x;
-			float posy = c.Y - y;
-			float dst = posx * posx + posy * posy;
-			if ( dst < c.R * c.R )
-				sc[(int)x + (int)y * width] = c.C;
-		}
+
+	float dx1 = mid.x - top.x, dx2 = bot.x - top.x, dx3 = bot.x - mid.x;
+	float dy1 = mid.y - top.y, dy2 = bot.y - top.y, dy3 = bot.y - mid.y;
+
+	if ( dy1 == 0 )
+		dy1 = 1.f;
+	if ( dy2 == 0 )
+		dy2 = 1.f;
+	if ( dy3 == 0 )
+		dy3 = 1.f;
+
+	float dxy1 = dx1 / dy1, dxy2 = dx2 / dy2, dxy3 = dx3 / dy3;
+
+	float x1, x2;
+	int y = top.y;
+
+	if ( top.y == mid.y )
+		x1 = min( top.x, mid.x ), x2 = max( top.x, mid.x );
+	else
+		x1 = top.x, x2 = top.x;
+
+	for ( ; y <= mid.y; y++ )
+	{
+
+		for ( int x = min( x1, x2 ); x < max( x1, x2 ); x++ )
+			sc[x + y * width] = col;
+		if ( y < mid.y )
+			x1 += dxy1, x2 += dxy2;
+	}
+
+	for ( ; y <= bot.y; y++ )
+	{
+		for ( int x = min( x1, x2 ); x < max( x1, x2 ); x++ )
+			sc[x + y * width] = col;
+		if ( y < bot.y )
+			x1 += dxy3, x2 += dxy2;
+	}
 }
 
 void DrawScene( Surface *screen, int index )
 {
 	screen->Clear( 0 );
 
-	for ( int i = 0; i < CIRCLES; i++ )
-		DrawCircle( circArray[index][i], screen, SURFWIDTH );
+	for ( int i = 0; i < TRIANGLES; i++ )
+		DrawTriangle( vertices[index][triIndexes[i * 3]], vertices[index][triIndexes[i * 3 + 1]], vertices[index][triIndexes[i * 3 + 2]], colors[index][i], screen, SURFWIDTH );
 }
 
 void PictureMutate( int index )
@@ -177,7 +227,7 @@ void PictureMutate( int index )
 	for ( float i = 0; i < imax; i++ )
 		Mutate( index );
 
-	DrawScene( screens[index] , index);
+	DrawScene( screens[index], index );
 
 	fitness[index] = DetermineFitness( screens[index], mainImage );
 }
@@ -186,10 +236,10 @@ void DrawBest( Surface *sc )
 {
 	sc->Clear( 0 );
 
-	for ( int i = 0; i < CIRCLES; i++ )
-		DrawCircle( circArray[THREADS][i], sc, SCRWIDTH );
+	for ( int i = 0; i < TRIANGLES; i++ )
+		DrawTriangle( vertices[THREADS][triIndexes[i * 3]], vertices[THREADS][triIndexes[i * 3 + 1]], vertices[THREADS][triIndexes[i * 3 + 2]], colors[THREADS][i], sc, SCRWIDTH );
 
-	goose.Draw( sc, 600, 0 );
+	copySprite.Draw( sc, SURFWIDTH, 0 );
 }
 
 int BestFit()
@@ -207,34 +257,46 @@ int BestFit()
 
 void Game::Init()
 {
-	mainImage = new Surface( 600, 600 );
-	goose.SetFrame( 0 );
+	mainImage = new Surface( SURFWIDTH, SURFWIDTH );
+	copySprite.SetFrame( 0 );
 
 	for ( int i = 0; i < THREADS; i++ )
 	{
-		screens[i] = new Surface( 600, 600 );
+		screens[i] = new Surface( SURFWIDTH, SURFWIDTH );
 		fitness[i] = 0;
-		//rngNums[i] = stack<int>();
 	}
-	rngNums = stack<int>();
 
-	//init stack
-	/*for ( int i = 0; i < THREADS; i++ )
-	{
-		int sz = rngNums.size();
-		for ( int j = sz; j < 256; j++ )
-			rngNums.push( (int)XSnum( i ) );
-	}*/
-
-	//Init fitness
 	fitness[THREADS] = 0xffffffff;
 
-	for ( int i = 0; i < CIRCLES; i++ )
+	for ( float y = 0; y < VertWH; y++ )
+		for ( float x = 0; x < VertWH; x++ )
+		{
+			pt vert = pt( x / (float)TrWH * (float)( SURFWIDTH - 1 ), y / (float)TrWH * (float)( SURFWIDTH - 1 ) );
+			for ( int i = 0; i < THREADS + 1; i++ )
+				vertices[i][(int)( x + y * VertWH )] = vert;
+		}
+
+	int trindex = 0;
+	for ( int y = 0; y < TrWH; y++ )
+		for ( int x = 0; x < TrWH; x++ ) //Triangle indexes, two triangles per square: first =  topleft, topright, botleft; second = topright, botleft, botright
+		{
+			//Triangle one (topleft)
+			triIndexes[trindex] = x + y * VertWH;
+			triIndexes[trindex + 1] = x + 1 + y * VertWH;
+			triIndexes[trindex + 2] = x + ( y + 1 ) * VertWH;
+
+			//Triangle one (botright)
+			triIndexes[trindex + 3] = x + 1 + y * VertWH;
+			triIndexes[trindex + 4] = x + ( y + 1 ) * VertWH;
+			triIndexes[trindex + 5] = x + 1 + ( y + 1 ) * VertWH;
+			trindex += 6;
+		}
+
+	for ( int i = 0; i < TRIANGLES; i++ )
 	{
-		circArray[THREADS][i].X = Rfloat( 1, 600 );
-		circArray[THREADS][i].Y = Rfloat( 2, 600 );
-		circArray[THREADS][i].R = Rfloat( 3, 30 ) + 10;
-		circArray[THREADS][i].C = XorShift( 4 );
+		uint c = XorShift( 0 );
+		for ( int j = 0; j < THREADS + 1; j++ )
+			colors[j][i] = c;
 	}
 }
 
@@ -244,24 +306,19 @@ void Game::Init()
 void Game::Shutdown()
 {
 }
-
+int asdfg = 227;
 // -----------------------------------------------------------
 // Main application tick function
 // -----------------------------------------------------------
 void Game::Tick( float deltaTime )
 {
 	mainImage->Clear( 0 );
-	goose.Draw( mainImage, 0, 0 );
+	copySprite.Draw( mainImage, 0, 0 );
 
 	RestoreBackup();
 
-	/*int sz = rngNums.size();
-	for ( int j = sz; j < 256; j++ )
-		rngNums.push( (int)XSnum( 1 ) );*/
-
 	for ( int i = 0; i < THREADS; i++ )
 		threads[i] = thread( PictureMutate, i );
-	
 
 	for ( int i = 0; i < THREADS; i++ )
 		threads[i].join();
@@ -272,30 +329,5 @@ void Game::Tick( float deltaTime )
 
 	printf( "%u\n", fitness[THREADS] );
 
-	/*DrawScene( screen ); //Eerste keer tekenen
-	
-	currentFit = DetermineFitness();
-	CreateBackup();
-
-	for ( int i = 0; i < 3; i++ )
-		Mutate(); //Muteren
-
-	DrawScene( screen ); //Tweede keer tekenen
-
-	afterFit = DetermineFitness();
-	if ( afterFit > currentFit ) //Bepalen of het beter was
-	{
-		RestoreBackup();
-		printf( "%u\n", currentFit );
-	}
-	else
-		printf( "%u\n", afterFit );	
-	*/
+	//DrawTriangle( pt( 400, 2.9f ), pt( 0, 3 ), pt( 150, 150 ), 0x00FF0000, screen, 1200 );
 }
-
-/*
-Individuele cirkel fitness
-hierop multithreaden
-
-miss sign * r ipv r * r
-*/
