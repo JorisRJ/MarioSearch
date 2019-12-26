@@ -5,16 +5,19 @@
 // -----------------------------------------------------------
 // Initialize the application
 // -----------------------------------------------------------
-static Sprite copySprite( new Surface( "assets/parrot.png" ), 1 );
+static Sprite copySprite( new Surface( "assets/caspare.png" ), 1 );
 static int frame = 0;
 
-constexpr uint TrWH = 24;
+constexpr uint TrWH = 48;
 constexpr uint VertWH = TrWH + 1;
 constexpr uint VertCount = VertWH * VertWH;
 constexpr uint TRIANGLES = TrWH * TrWH * 2;
-constexpr uint THREADS = 8; //KIEK UIT, groter dan 8 crasht ie ivm seeds
+constexpr uint THREADS = 4; //KIEK UIT, groter dan 32 crasht ie ivm seeds
+constexpr uint SCREENS = THREADS + 1;
 constexpr uint MUTATES = 2;
-constexpr int SURFWIDTH = 600;
+constexpr int SURFWIDTH = 800;
+
+constexpr bool HEADSTART = true;
 
 struct pt
 {
@@ -25,21 +28,27 @@ struct pt
 	pt() { x = 0, y = 0; }
 };
 
-pt operator+( const pt &a, const pt &b ) { return pt( a.x + b.x, a.y + b.y ); }
+pt operator + ( const pt &a, const pt &b ) { return pt( a.x + b.x, a.y + b.y ); }
+pt operator / ( const pt &a, const pt &b ) { return pt( a.x / b.x, a.y / b.y ); }
+pt operator / ( const pt &a, const int &b ) { return pt( a.x / b, a.y / b ); }
 
-uint colors[THREADS + 1][TRIANGLES];
+uint colors[SCREENS][TRIANGLES];
 
-pt vertices[THREADS + 1][VertCount];
+pt vertices[SCREENS][VertCount];
 int triIndexes[TRIANGLES * 3];
 
-Surface *screens[THREADS], *mainImage;
-uint fitness[THREADS + 1];
+int currentBest = THREADS;
+
+Surface *screens[SCREENS], *mainImage;
+uint fitness[SCREENS];
 thread threads[THREADS];
-uint seeds[8] = {0x1bd53af8, 0x178dacf0, 0x65afbe35, 0x123abcf3, 0x83abddc7, 0xcd8efa3b, 0x12345679, 0x98765432};
+uint seeds[33] = {0x1f24df53, 0x3d00f1e2, 0x20edba0f, 0xcf824a02, 0x22f70086, 0x04f5822f, 0x1f77e710, 0x726487a8, 0x0c9e301d,
+				0x7cb76725, 0xbe384623, 0xa4a8281a, 0xb8196289, 0x661a6a59, 0x0c69a855, 0xeaae4344, 0x513dedf7, 0xbe0e3809,
+				0x9c97cf0c, 0x27aafd26, 0xd67ebf99, 0x351b9578, 0x046f1558, 0xfc42a388, 0x83e611e7, 0x39a71f50, 0x85db87e1,
+				0xe34c5e62, 0x4b29382d, 0x2f4b8c20, 0xfba53b71, 0xf62da6cd, 0xdac429bf};
 
 
-
-void CreateBackup( int index )
+/*void CreateBackup( int index )
 {
 	if ( index == THREADS ) return;
 
@@ -52,7 +61,7 @@ void CreateBackup( int index )
 		colors[THREADS][i] = colors[index][i];
 
 	fitness[THREADS] = fitness[index];
-}
+}*/
 
 uint XorShift( int index )
 {
@@ -66,13 +75,20 @@ float Rfloat( int index, float range ) { return XorShift( index ) * 2.3283064365
 
 void RestoreBackup()
 {
-	for ( int i = 0; i < VertCount; i++ )
-		for ( int j = 0; j < THREADS; j++ )
-			vertices[j][i] = vertices[THREADS][i];
+	for (int j = 0; j < SCREENS; j++) 
+	{
+		if ( j == currentBest ) continue;
+		for ( int i = 0; i < VertCount; i++ )
+			vertices[j][i] = vertices[currentBest][i];
+	}
 
-	for ( int i = 0; i < TRIANGLES; i++ )
-		for ( int j = 0; j < THREADS; j++ )
-			colors[j][i] = colors[THREADS][i];
+
+	for ( int j = 0; j < SCREENS; j++ )
+	{
+		if ( j == currentBest ) continue;
+		for (int i = 0; i < TRIANGLES; i++)
+			colors[j][i] = colors[currentBest][i];
+	}
 }
 
 uint DetermineFitness( Surface *surf, Surface *ogpic )
@@ -213,12 +229,12 @@ void DrawTriangle( pt q1, pt q2, pt q3, uint col, Surface *screen, int width )
 	}
 }
 
-void DrawScene( Surface *screen, int index )
+void DrawScene( Surface *screen, int index, int width = SURFWIDTH )
 {
 	screen->Clear( 0 );
 
 	for ( int i = 0; i < TRIANGLES; i++ )
-		DrawTriangle( vertices[index][triIndexes[i * 3]], vertices[index][triIndexes[i * 3 + 1]], vertices[index][triIndexes[i * 3 + 2]], colors[index][i], screen, SURFWIDTH );
+		DrawTriangle( vertices[index][triIndexes[i * 3]], vertices[index][triIndexes[i * 3 + 1]], vertices[index][triIndexes[i * 3 + 2]], colors[index][i], screen, width );
 }
 
 void PictureMutate( int index )
@@ -232,27 +248,14 @@ void PictureMutate( int index )
 	fitness[index] = DetermineFitness( screens[index], mainImage );
 }
 
-void DrawBest( Surface *sc )
+
+void BestFit()
 {
-	sc->Clear( 0 );
-
-	for ( int i = 0; i < TRIANGLES; i++ )
-		DrawTriangle( vertices[THREADS][triIndexes[i * 3]], vertices[THREADS][triIndexes[i * 3 + 1]], vertices[THREADS][triIndexes[i * 3 + 2]], colors[THREADS][i], sc, SCRWIDTH );
-
-	copySprite.Draw( sc, SURFWIDTH, 0 );
-}
-
-int BestFit()
-{
-	int best = THREADS;
-
-	for ( int i = 0; i < THREADS; i++ )
+	for ( int i = 0; i < SCREENS; i++ )
 	{
-		if ( fitness[i] < fitness[best] )
-			best = i;
+		if ( fitness[i] < fitness[currentBest] )
+			currentBest = i;
 	}
-
-	return best;
 }
 
 void Game::Init()
@@ -260,22 +263,23 @@ void Game::Init()
 	mainImage = new Surface( SURFWIDTH, SURFWIDTH );
 	copySprite.SetFrame( 0 );
 
-	for ( int i = 0; i < THREADS; i++ )
+	//Screens init
+	for ( int i = 0; i < SCREENS; i++ )
 	{
 		screens[i] = new Surface( SURFWIDTH, SURFWIDTH );
-		fitness[i] = 0;
+		fitness[i] = 0xffffffff;
 	}
 
-	fitness[THREADS] = 0xffffffff;
-
+	//Calculate all the vertices
 	for ( float y = 0; y < VertWH; y++ )
 		for ( float x = 0; x < VertWH; x++ )
 		{
 			pt vert = pt( x / (float)TrWH * (float)( SURFWIDTH - 1 ), y / (float)TrWH * (float)( SURFWIDTH - 1 ) );
-			for ( int i = 0; i < THREADS + 1; i++ )
+			for ( int i = 0; i < SCREENS; i++ )
 				vertices[i][(int)( x + y * VertWH )] = vert;
 		}
 
+	//Attach the triangles to the vertices
 	int trindex = 0;
 	for ( int y = 0; y < TrWH; y++ )
 		for ( int x = 0; x < TrWH; x++ ) //Triangle indexes, two triangles per square: first =  topleft, topright, botleft; second = topright, botleft, botright
@@ -292,11 +296,52 @@ void Game::Init()
 			trindex += 6;
 		}
 
-	for ( int i = 0; i < TRIANGLES; i++ )
+
+
+	//Color init
+	if ( HEADSTART ) 
 	{
-		uint c = XorShift( 0 );
-		for ( int j = 0; j < THREADS + 1; j++ )
-			colors[j][i] = c;
+		copySprite.Draw( mainImage, 0, 0 );
+		pt q1, q2, q3, avg, t1, t2, t3;
+		uint c1, c2, c3, cf;
+		uint r, g, b;
+		Pixel *px = mainImage->GetBuffer();
+
+		//Take three spots in a triangle, take the colors, average the color.
+		for ( int i = 0; i < TRIANGLES; i++ ) 
+		{
+			q1 = vertices[0][triIndexes[i * 3]];
+			q2 = vertices[0][triIndexes[i * 3 + 1]];
+			q3 = vertices[0][triIndexes[i * 3 + 2]];
+			
+			avg = (q1 + q2 + q3) / 3;
+			t1 = ( avg + q1 ) / 2;
+			t2 = ( avg + q2 ) / 2;
+			t3 = ( avg + q3 ) / 2;
+
+			c1 = ( px[t1.x + t1.y * SURFWIDTH] );
+			c2 = ( px[t2.x + t2.y * SURFWIDTH] );
+			c3 = ( px[t3.x + t3.y * SURFWIDTH] );
+
+			r = ( ( c1 >> 16 ) & 255 ) + ( ( c2 >> 16 ) & 255 ) + ( ( c3 >> 16 ) & 255 );
+			g = ( ( c1 >> 8 ) & 255 ) + ( ( c2 >> 8 ) & 255 ) + ( ( c3 >> 8 ) & 255 );
+			b = ( c1 & 255 ) + ( c2 & 255 ) + ( c3 & 255 );
+
+			cf = ( r / 3 << 16 ) + ( g / 3 << 8 ) + b / 3;
+
+			for ( int j = 0; j < SCREENS; j++ )
+				colors[j][i] = cf;
+		}
+	}
+	else
+	{
+		for ( int i = 0; i < TRIANGLES; i++ )
+		{
+			uint c = XorShift( 0 );
+			for ( int j = 0; j < SCREENS; j++ )
+				colors[j][i] = c;
+		}
+
 	}
 }
 
@@ -306,7 +351,6 @@ void Game::Init()
 void Game::Shutdown()
 {
 }
-int asdfg = 227;
 // -----------------------------------------------------------
 // Main application tick function
 // -----------------------------------------------------------
@@ -317,17 +361,25 @@ void Game::Tick( float deltaTime )
 
 	RestoreBackup();
 
-	for ( int i = 0; i < THREADS; i++ )
-		threads[i] = thread( PictureMutate, i );
+	int k = 0;
+	for ( int i = 0; i < THREADS; i++ ) 
+	{
+		if ( i == currentBest ) k++; //Skip the best
+
+		threads[i] = thread( PictureMutate, i + k);
+	}
 
 	for ( int i = 0; i < THREADS; i++ )
 		threads[i].join();
 
-	CreateBackup( BestFit() );
+	//CreateBackup( BestFit() );
 
-	DrawBest( screen );
+	BestFit();
 
-	printf( "%u\n", fitness[THREADS] );
+	DrawScene( screen, currentBest, SCRWIDTH );
+	copySprite.Draw( screen, SURFWIDTH, 0 );
+
+	printf( "%u\n", fitness[currentBest] );
 
 	//DrawTriangle( pt( 400, 2.9f ), pt( 0, 3 ), pt( 150, 150 ), 0x00FF0000, screen, 1200 );
 }
