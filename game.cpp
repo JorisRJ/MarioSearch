@@ -5,10 +5,10 @@
 // -----------------------------------------------------------
 // Initialize the application
 // -----------------------------------------------------------
-static Sprite copySprite( new Surface( "assets/caspare.png" ), 1 );
+static Sprite copySprite( new Surface( "assets/bridge.png" ), 1 );
 static int frame = 0;
 
-constexpr uint TrWH = 48;
+constexpr uint TrWH = 64;
 constexpr uint VertWH = TrWH + 1;
 constexpr uint VertCount = VertWH * VertWH;
 constexpr uint TRIANGLES = TrWH * TrWH * 2;
