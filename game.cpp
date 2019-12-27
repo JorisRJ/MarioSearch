@@ -118,11 +118,11 @@ void Mutate( int index )
 {
 	int tri;
 	pt displacement, ogpos, newpos;
+	tri = (int)Rfloat( index, VertCount );
 	switch ( (int)Rfloat( index, 3 ) )
 	{
 	case 0:
 		//Displace
-		tri = (int)Rfloat( index, VertCount );
 		displacement = pt( Rfloat( index, 6 ) - 3, Rfloat( index, 6 ) - 3 );
 		ogpos = vertices[index][tri];
 		newpos = pt( clamp( ogpos.x + displacement.x, 0, SURFWIDTH - 1 ), clamp( ogpos.y + displacement.y, 0, SURFWIDTH - 1 ) );
@@ -131,11 +131,11 @@ void Mutate( int index )
 		break;
 	case 1:
 		//reroll color
-		//colors[index][(int)Rfloat( index, TRIANGLES )] = XorShift( index );
+		colors[index][tri] = XorShift( index );
 		break;
 	case 2:
 		//slight color adjust
-		//colors[index][(int)Rfloat( index, TRIANGLES )] += ( ( (int)( Rfloat( index, 10 ) - 5 ) << 16 ) + ( (int)( Rfloat( index, 10 ) - 5 ) << 8 ) + (int)( Rfloat( index, 10 ) - 5 ) );
+		colors[index][tri] += ( ( (int)( Rfloat( index, 10 ) - 5 ) << 16 ) + ( (int)( Rfloat( index, 10 ) - 5 ) << 8 ) + (int)( Rfloat( index, 10 ) - 5 ) );
 		break;
 	}
 }
