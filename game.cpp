@@ -28,9 +28,9 @@ struct pt
 	pt() { x = 0, y = 0; }
 };
 
-pt operator + ( const pt &a, const pt &b ) { return pt( a.x + b.x, a.y + b.y ); }
-pt operator / ( const pt &a, const pt &b ) { return pt( a.x / b.x, a.y / b.y ); }
-pt operator / ( const pt &a, const int &b ) { return pt( a.x / b, a.y / b ); }
+pt operator+( const pt &a, const pt &b ) { return pt( a.x + b.x, a.y + b.y ); }
+pt operator/( const pt &a, const pt &b ) { return pt( a.x / b.x, a.y / b.y ); }
+pt operator/( const pt &a, const int &b ) { return pt( a.x / b, a.y / b ); }
 
 uint colors[SCREENS][VertCount];
 
@@ -43,10 +43,9 @@ Surface *screens[SCREENS], *mainImage;
 uint fitness[SCREENS];
 thread threads[THREADS];
 uint seeds[33] = {0x1f24df53, 0x3d00f1e2, 0x20edba0f, 0xcf824a02, 0x22f70086, 0x04f5822f, 0x1f77e710, 0x726487a8, 0x0c9e301d,
-				0x7cb76725, 0xbe384623, 0xa4a8281a, 0xb8196289, 0x661a6a59, 0x0c69a855, 0xeaae4344, 0x513dedf7, 0xbe0e3809,
-				0x9c97cf0c, 0x27aafd26, 0xd67ebf99, 0x351b9578, 0x046f1558, 0xfc42a388, 0x83e611e7, 0x39a71f50, 0x85db87e1,
-				0xe34c5e62, 0x4b29382d, 0x2f4b8c20, 0xfba53b71, 0xf62da6cd, 0xdac429bf};
-
+				  0x7cb76725, 0xbe384623, 0xa4a8281a, 0xb8196289, 0x661a6a59, 0x0c69a855, 0xeaae4344, 0x513dedf7, 0xbe0e3809,
+				  0x9c97cf0c, 0x27aafd26, 0xd67ebf99, 0x351b9578, 0x046f1558, 0xfc42a388, 0x83e611e7, 0x39a71f50, 0x85db87e1,
+				  0xe34c5e62, 0x4b29382d, 0x2f4b8c20, 0xfba53b71, 0xf62da6cd, 0xdac429bf};
 
 /*void CreateBackup( int index )
 {
@@ -75,18 +74,17 @@ float Rfloat( int index, float range ) { return XorShift( index ) * 2.3283064365
 
 void RestoreBackup()
 {
-	for (int j = 0; j < SCREENS; j++) 
+	for ( int j = 0; j < SCREENS; j++ )
 	{
 		if ( j == currentBest ) continue;
 		for ( int i = 0; i < VertCount; i++ )
 			vertices[j][i] = vertices[currentBest][i];
 	}
 
-
 	for ( int j = 0; j < SCREENS; j++ )
 	{
 		if ( j == currentBest ) continue;
-		for (int i = 0; i < VertCount; i++)
+		for ( int i = 0; i < VertCount; i++ )
 			colors[j][i] = colors[currentBest][i];
 	}
 }
@@ -227,17 +225,36 @@ void DrawTriangle( pt q1, pt q2, pt q3, uint col1, uint col2, uint col3, Surface
 	for ( ; y <= mid.y; y++ )
 	{
 
-		for (int x = min(x1, x2); x < max(x1, x2); x++)
+		for ( int x = min( x1, x2 ); x < max( x1, x2 ); x++ )
 		{
-			float dst1 = 1.f/(( top.x - x ) * ( top.x - x ) + ( top.y - y ) * ( top.y - y ));
-			float dst2 = 1.f/(( mid.x - x ) * ( mid.x - x ) + ( mid.y - y ) * ( mid.y - y ));
-			float dst3 = 1.f/(( bot.x - x ) * ( bot.x - x ) + ( bot.y - y ) * ( bot.y - y ));
-			float total = dst1 + dst2 + dst3;
-			int red = (dst1 * ( ( topc >> 16 ) & 255 ) + dst2 *( ( midc >> 16 ) & 255 ) + dst3 * ( ( botc >> 16 ) & 255 )) / total;
-			int green = (dst1 * ( ( topc >> 8 ) & 255 ) + dst2 * ( ( midc >> 8 ) & 255 ) + dst3 * ( ( botc >> 8 ) & 255 )) / total;
-			int blue = (dst1 * ( topc & 255 ) + dst2 * (midc & 255 ) + dst3 * ( botc  & 255 )) / total;
-			uint col = (red << 16) + (green << 8) + blue;
-			sc[x + y * width] = col;
+			float dst1 = ( ( top.x - x ) * ( top.x - x ) + ( top.y - y ) * ( top.y - y ) );
+			float dst2 = ( ( mid.x - x ) * ( mid.x - x ) + ( mid.y - y ) * ( mid.y - y ) );
+			float dst3 = ( ( bot.x - x ) * ( bot.x - x ) + ( bot.y - y ) * ( bot.y - y ) );
+			if ( dst1 == 0 )
+			{
+				sc[x + y * width] = topc;
+			}
+			else if (dst2 == 0)
+			{
+				sc[x + y * width] = midc;
+			}
+			else if (dst3 == 0)
+			{
+				sc[x + y * width] = botc;
+			}
+			else
+			{
+				dst1 = 1.f / dst1;
+				dst2 = 1.f / dst2;
+				dst3 = 1.f / dst3;
+
+				float total = dst1 + dst2 + dst3;
+				int red = ( dst1 * ( ( topc >> 16 ) & 255 ) + dst2 * ( ( midc >> 16 ) & 255 ) + dst3 * ( ( botc >> 16 ) & 255 ) ) / total;
+				int green = ( dst1 * ( ( topc >> 8 ) & 255 ) + dst2 * ( ( midc >> 8 ) & 255 ) + dst3 * ( ( botc >> 8 ) & 255 ) ) / total;
+				int blue = ( dst1 * ( topc & 255 ) + dst2 * ( midc & 255 ) + dst3 * ( botc & 255 ) ) / total;
+				uint col = ( red << 16 ) + ( green << 8 ) + blue;
+				sc[x + y * width] = col;
+			}
 		}
 		if ( y < mid.y )
 			x1 += dxy1, x2 += dxy2;
@@ -245,17 +262,36 @@ void DrawTriangle( pt q1, pt q2, pt q3, uint col1, uint col2, uint col3, Surface
 
 	for ( ; y <= bot.y; y++ )
 	{
-		for (int x = min(x1, x2); x < max(x1, x2); x++)
+		for ( int x = min( x1, x2 ); x < max( x1, x2 ); x++ )
 		{
-			float dst1 = 1.f / ( ( top.x - x ) * ( top.x - x ) + ( top.y - y ) * ( top.y - y ) );
-			float dst2 = 1.f / ( ( mid.x - x ) * ( mid.x - x ) + ( mid.y - y ) * ( mid.y - y ) );
-			float dst3 = 1.f / ( ( bot.x - x ) * ( bot.x - x ) + ( bot.y - y ) * ( bot.y - y ) );
-			float total = dst1 + dst2 + dst3;
-			int red = ( dst1 * ( ( topc >> 16 ) & 255 ) + dst2 * ( ( midc >> 16 ) & 255 ) + dst3 * ( ( botc >> 16 ) & 255 ) ) / total;
-			int green = ( dst1 * ( ( topc >> 8 ) & 255 ) + dst2 * ( ( midc >> 8 ) & 255 ) + dst3 * ( ( botc >> 8 ) & 255 ) ) / total;
-			int blue = ( dst1 * ( topc & 255 ) + dst2 * ( midc & 255 ) + dst3 * ( botc & 255 ) ) / total;
-			uint col = ( red << 16 ) + ( green << 8 ) + blue;
-			sc[x + y * width] = col;
+			float dst1 = ( ( top.x - x ) * ( top.x - x ) + ( top.y - y ) * ( top.y - y ) );
+			float dst2 = ( ( mid.x - x ) * ( mid.x - x ) + ( mid.y - y ) * ( mid.y - y ) );
+			float dst3 = ( ( bot.x - x ) * ( bot.x - x ) + ( bot.y - y ) * ( bot.y - y ) );
+			if ( dst1 == 0 )
+			{
+				sc[x + y * width] = topc;
+			}
+			else if ( dst2 == 0 )
+			{
+				sc[x + y * width] = midc;
+			}
+			else if ( dst3 == 0 )
+			{
+				sc[x + y * width] = botc;
+			}
+			else
+			{
+				dst1 = 1.f / dst1;
+				dst2 = 1.f / dst2;
+				dst3 = 1.f / dst3;
+
+				float total = dst1 + dst2 + dst3;
+				int red = ( dst1 * ( ( topc >> 16 ) & 255 ) + dst2 * ( ( midc >> 16 ) & 255 ) + dst3 * ( ( botc >> 16 ) & 255 ) ) / total;
+				int green = ( dst1 * ( ( topc >> 8 ) & 255 ) + dst2 * ( ( midc >> 8 ) & 255 ) + dst3 * ( ( botc >> 8 ) & 255 ) ) / total;
+				int blue = ( dst1 * ( topc & 255 ) + dst2 * ( midc & 255 ) + dst3 * ( botc & 255 ) ) / total;
+				uint col = ( red << 16 ) + ( green << 8 ) + blue;
+				sc[x + y * width] = col;
+			}
 		}
 		if ( y < bot.y )
 			x1 += dxy3, x2 += dxy2;
@@ -280,7 +316,6 @@ void PictureMutate( int index )
 
 	fitness[index] = DetermineFitness( screens[index], mainImage );
 }
-
 
 void BestFit()
 {
@@ -329,10 +364,8 @@ void Game::Init()
 			trindex += 6;
 		}
 
-
-
 	//Color init
-	if ( HEADSTART ) 
+	if ( HEADSTART )
 	{
 		copySprite.Draw( mainImage, 0, 0 );
 		pt q;
@@ -341,7 +374,7 @@ void Game::Init()
 		Pixel *px = mainImage->GetBuffer();
 
 		//Take three spots in a triangle, take the colors, average the color.
-		for ( int i = 0; i < VertCount; i++ ) 
+		for ( int i = 0; i < VertCount; i++ )
 		{
 			q = vertices[0][triIndexes[i * 3]];
 
@@ -359,7 +392,6 @@ void Game::Init()
 			for ( int j = 0; j < SCREENS; j++ )
 				colors[j][i] = c;
 		}
-
 	}
 }
 
@@ -380,11 +412,11 @@ void Game::Tick( float deltaTime )
 	RestoreBackup();
 
 	int k = 0;
-	for ( int i = 0; i < THREADS; i++ ) 
+	for ( int i = 0; i < THREADS; i++ )
 	{
 		if ( i == currentBest ) k++; //Skip the best
 
-		threads[i] = thread( PictureMutate, i + k);
+		threads[i] = thread( PictureMutate, i + k );
 	}
 
 	for ( int i = 0; i < THREADS; i++ )
@@ -399,10 +431,10 @@ void Game::Tick( float deltaTime )
 
 	printf( "%u\n", fitness[currentBest] );
 
-	if (GetAsyncKeyState(32)) 
+	if ( GetAsyncKeyState( 32 ) )
 	{
 		/*printf("%i\n", SDL_SaveBMP(screen, "assets/MyFirstSavedImage"));*/
 	}
-	
+
 	//DrawTriangle( pt( 400, 2.9f ), pt( 0, 3 ), pt( 150, 150 ), 0x00FF0000, screen, 1200 );
 }
