@@ -12,12 +12,12 @@ constexpr uint TrWH = 64;
 constexpr uint VertWH = TrWH + 1;
 constexpr uint VertCount = VertWH * VertWH;
 constexpr uint TRIANGLES = TrWH * TrWH * 2;
-constexpr uint THREADS = 8; //KIEK UIT, groter dan 32 crasht ie ivm seeds
+constexpr uint THREADS = 4; //KIEK UIT, groter dan 32 crasht ie ivm seeds
 constexpr uint SCREENS = THREADS + 1;
 constexpr uint MUTATES = 2;
 constexpr int SURFWIDTH = 800;
 
-constexpr bool HEADSTART = false;
+constexpr bool HEADSTART = true;
 
 struct pt
 {
@@ -229,10 +229,10 @@ void DrawTriangle( pt q1, pt q2, pt q3, uint col1, uint col2, uint col3, Surface
 
 		for (int x = min(x1, x2); x < max(x1, x2); x++)
 		{
-			int dst1 = ( top.x - x ) * ( top.x - x ) + ( top.y - y ) * ( top.y - y );
-			int dst2 = ( mid.x - x ) * ( mid.x - x ) + ( mid.y - y ) * ( mid.y - y );
-			int dst3 = ( bot.x - x ) * ( bot.x - x ) + ( bot.y - y ) * ( bot.y - y );
-			int total = dst1 + dst2 + dst3;
+			float dst1 = 1.f/(( top.x - x ) * ( top.x - x ) + ( top.y - y ) * ( top.y - y ));
+			float dst2 = 1.f/(( mid.x - x ) * ( mid.x - x ) + ( mid.y - y ) * ( mid.y - y ));
+			float dst3 = 1.f/(( bot.x - x ) * ( bot.x - x ) + ( bot.y - y ) * ( bot.y - y ));
+			float total = dst1 + dst2 + dst3;
 			int red = (dst1 * ( ( topc >> 16 ) & 255 ) + dst2 *( ( midc >> 16 ) & 255 ) + dst3 * ( ( botc >> 16 ) & 255 )) / total;
 			int green = (dst1 * ( ( topc >> 8 ) & 255 ) + dst2 * ( ( midc >> 8 ) & 255 ) + dst3 * ( ( botc >> 8 ) & 255 )) / total;
 			int blue = (dst1 * ( topc & 255 ) + dst2 * (midc & 255 ) + dst3 * ( botc  & 255 )) / total;
@@ -247,10 +247,10 @@ void DrawTriangle( pt q1, pt q2, pt q3, uint col1, uint col2, uint col3, Surface
 	{
 		for (int x = min(x1, x2); x < max(x1, x2); x++)
 		{
-			int dst1 = ( top.x - x ) * ( top.x - x ) + ( top.y - y ) * ( top.y - y );
-			int dst2 = ( mid.x - x ) * ( mid.x - x ) + ( mid.y - y ) * ( mid.y - y );
-			int dst3 = ( bot.x - x ) * ( bot.x - x ) + ( bot.y - y ) * ( bot.y - y );
-			int total = dst1 + dst2 + dst3;
+			float dst1 = 1.f / ( ( top.x - x ) * ( top.x - x ) + ( top.y - y ) * ( top.y - y ) );
+			float dst2 = 1.f / ( ( mid.x - x ) * ( mid.x - x ) + ( mid.y - y ) * ( mid.y - y ) );
+			float dst3 = 1.f / ( ( bot.x - x ) * ( bot.x - x ) + ( bot.y - y ) * ( bot.y - y ) );
+			float total = dst1 + dst2 + dst3;
 			int red = ( dst1 * ( ( topc >> 16 ) & 255 ) + dst2 * ( ( midc >> 16 ) & 255 ) + dst3 * ( ( botc >> 16 ) & 255 ) ) / total;
 			int green = ( dst1 * ( ( topc >> 8 ) & 255 ) + dst2 * ( ( midc >> 8 ) & 255 ) + dst3 * ( ( botc >> 8 ) & 255 ) ) / total;
 			int blue = ( dst1 * ( topc & 255 ) + dst2 * ( midc & 255 ) + dst3 * ( botc & 255 ) ) / total;
