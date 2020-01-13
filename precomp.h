@@ -64,6 +64,24 @@ using namespace std;
 #include "surface.h"
 #include "template.h"
 
+#include "windows.h"
+#include <cl/cl.h>
+#include <cl/cl_gl_ext.h>
+#include <vector>
+#include <fstream>
+#include <fcntl.h>
+#include <io.h>
+#include <string>
+
+void FatalError( const char *file, int line, const char *message );
+void FatalError( const char *file, int line, const char *message, const char *context );
+
+#define FATALERROR( m ) FatalError( __FILE__, __LINE__, m )
+#define ERRORMESSAGE( m, c ) FatalError( __FILE__, __LINE__, m, c )
+#define CHECKCL( r ) CheckCL( r, __FILE__, __LINE__ )
+
+#include "opencl.h"
+
 using namespace Tmpl8;
 
 #include "game.h"

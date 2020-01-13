@@ -8,6 +8,9 @@
     <ClCompile Include="template.cpp">
       <Filter>template code</Filter>
     </ClCompile>
+    <ClCompile Include="opencl.cpp">
+      <Filter>template code</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="game.h" />
@@ -18,15 +21,33 @@
       <Filter>template code</Filter>
     </ClInclude>
     <ClInclude Include="precomp.h" />
+    <ClInclude Include="opencl.h">
+      <Filter>template code</Filter>
+    </ClInclude>
+    <ClInclude Include="programs\program.h">
+      <Filter>Programs</Filter>
+    </ClInclude>
+    <ClInclude Include="programs\randomnumbers.h">
+      <Filter>Programs</Filter>
+    </ClInclude>
+    <ClInclude Include="system.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="template code">
       <UniqueIdentifier>{bf32dd6e-4be7-4889-8ac6-49e7ee163c40}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Programs">
+      <UniqueIdentifier>{5d27bb35-b8ab-42d4-8892-a5a32fa3b014}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
     <Text Include="_readme.txt">
       <Filter>template code</Filter>
     </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="programs\program.cl">
+      <Filter>Programs</Filter>
+    </None>
   </ItemGroup>
 </Project>

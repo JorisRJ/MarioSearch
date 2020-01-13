@@ -13,7 +13,27 @@
 
 #include "precomp.h"
 
+void FatalError( const char *file, int line, const char *message )
+{
+	char t[8192];
+	sprintf( t, "%s, line %i:\n%s", file, line, message );
+	MessageBox( NULL, t, "Error", MB_OK | MB_ICONEXCLAMATION );
+	exit( 0 );
+}
+void FatalError( const char *file, int line, const char *message, const char *context )
+{
+	char t[3000];
+	sprintf( t, "%s, line %i:\n%s", file, line, message );
+	MessageBox( NULL, t, context, MB_OK | MB_ICONEXCLAMATION );
+	exit( 0 );
+}
+
 namespace Tmpl8 {
+
+// FatalError
+// Generic error handling; called by FATALERROR macro.
+// ----------------------------------------------------------------------------
+
 
 // Math Stuff
 // ----------------------------------------------------------------------------
