@@ -16,6 +16,8 @@ constexpr uint THREADS = 4; //KIEK UIT, groter dan 32 crasht ie ivm seeds
 constexpr uint SCREENS = THREADS + 1;
 constexpr uint MUTATES = 2;
 constexpr int SURFWIDTH = 800;
+constexpr int SURFHEIGHT = 800;
+
 
 constexpr bool HEADSTART = true;
 
@@ -258,8 +260,22 @@ void BestFit()
 	}
 }
 
+static int *clOutput = 0;
+static Kernel *myKernel;
+static Buffer *outputBuffer;
+
 void Game::Init()
 {
+	clOutput = new int[SURFWIDTH * SURFHEIGHT];
+	myKernel = new Kernel( "programs/program.cl", "myKernel" );
+
+	outputBuffer = new Buffer( SURFHEIGHT * SURFWIDTH, Buffer::DEFAULT, clOutput );
+	myKernel->SetArgument( 0, outputBuffer );
+
+	myKernel->Run( 100 );
+	outputBuffer->CopyFromDevice();
+
+
 	mainImage = new Surface( SURFWIDTH, SURFWIDTH );
 	copySprite.SetFrame( 0 );
 
