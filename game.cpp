@@ -266,7 +266,7 @@ static Buffer *outputBuffer;
 
 void Game::Init()
 {
-	clOutput = new int[SURFWIDTH * SURFHEIGHT];
+	/*clOutput = new int[SURFWIDTH * SURFHEIGHT];
 	myKernel = new Kernel( "programs/program.cl", "myKernel" );
 
 	outputBuffer = new Buffer( SURFHEIGHT * SURFWIDTH, Buffer::DEFAULT, clOutput );
@@ -274,7 +274,7 @@ void Game::Init()
 
 	myKernel->Run( 100 );
 	outputBuffer->CopyFromDevice();
-
+	*/
 
 	mainImage = new Surface( SURFWIDTH, SURFWIDTH );
 	copySprite.SetFrame( 0 );
