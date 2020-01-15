@@ -18,7 +18,6 @@ constexpr uint MUTATES = 2;
 constexpr int SURFWIDTH = 800;
 constexpr int SURFHEIGHT = 800;
 
-
 constexpr bool HEADSTART = true;
 
 struct pt
@@ -30,9 +29,9 @@ struct pt
 	pt() { x = 0, y = 0; }
 };
 
-pt operator + ( const pt &a, const pt &b ) { return pt( a.x + b.x, a.y + b.y ); }
-pt operator / ( const pt &a, const pt &b ) { return pt( a.x / b.x, a.y / b.y ); }
-pt operator / ( const pt &a, const int &b ) { return pt( a.x / b, a.y / b ); }
+pt operator+( const pt &a, const pt &b ) { return pt( a.x + b.x, a.y + b.y ); }
+pt operator/( const pt &a, const pt &b ) { return pt( a.x / b.x, a.y / b.y ); }
+pt operator/( const pt &a, const int &b ) { return pt( a.x / b, a.y / b ); }
 
 uint colors[SCREENS][TRIANGLES];
 
@@ -45,10 +44,9 @@ Surface *screens[SCREENS], *mainImage;
 uint fitness[SCREENS];
 thread threads[THREADS];
 uint seeds[33] = {0x1f24df53, 0x3d00f1e2, 0x20edba0f, 0xcf824a02, 0x22f70086, 0x04f5822f, 0x1f77e710, 0x726487a8, 0x0c9e301d,
-				0x7cb76725, 0xbe384623, 0xa4a8281a, 0xb8196289, 0x661a6a59, 0x0c69a855, 0xeaae4344, 0x513dedf7, 0xbe0e3809,
-				0x9c97cf0c, 0x27aafd26, 0xd67ebf99, 0x351b9578, 0x046f1558, 0xfc42a388, 0x83e611e7, 0x39a71f50, 0x85db87e1,
-				0xe34c5e62, 0x4b29382d, 0x2f4b8c20, 0xfba53b71, 0xf62da6cd, 0xdac429bf};
-
+				  0x7cb76725, 0xbe384623, 0xa4a8281a, 0xb8196289, 0x661a6a59, 0x0c69a855, 0xeaae4344, 0x513dedf7, 0xbe0e3809,
+				  0x9c97cf0c, 0x27aafd26, 0xd67ebf99, 0x351b9578, 0x046f1558, 0xfc42a388, 0x83e611e7, 0x39a71f50, 0x85db87e1,
+				  0xe34c5e62, 0x4b29382d, 0x2f4b8c20, 0xfba53b71, 0xf62da6cd, 0xdac429bf};
 
 /*void CreateBackup( int index )
 {
@@ -77,41 +75,45 @@ float Rfloat( int index, float range ) { return XorShift( index ) * 2.3283064365
 
 void RestoreBackup()
 {
-	for (int j = 0; j < SCREENS; j++) 
+	for ( int j = 0; j < SCREENS; j++ )
 	{
 		if ( j == currentBest ) continue;
 		for ( int i = 0; i < VertCount; i++ )
 			vertices[j][i] = vertices[currentBest][i];
 	}
 
-
 	for ( int j = 0; j < SCREENS; j++ )
 	{
 		if ( j == currentBest ) continue;
-		for (int i = 0; i < TRIANGLES; i++)
+		for ( int i = 0; i < TRIANGLES; i++ )
 			colors[j][i] = colors[currentBest][i];
 	}
 }
+
+static uint *clOutput = 0;
+static uint *clInputOG;
+static uint *clInputTest;
+static Kernel *myKernel;
+static Buffer *outputBuffer;
+static Buffer *inputOGBuffer;
+static Buffer *inputTestBuffer;
 
 uint DetermineFitness( Surface *surf, Surface *ogpic )
 {
 	Pixel *p = surf->GetBuffer();
 	Pixel *pog = ogpic->GetBuffer();
+	clInputTest = p;
+	clInputOG = pog;
+
+	myKernel->SetArgument( 0, outputBuffer );
+	myKernel->SetArgument( 1, inputOGBuffer );
+	myKernel->SetArgument( 2, inputTestBuffer );
+
+	myKernel->Run( outputBuffer );
+	outputBuffer->CopyFromDevice();
 	uint sum = 0;
-
-	for ( int i = 0; i < SURFWIDTH; i++ )
-		for ( int j = 0; j < SURFWIDTH; j++ )
-		{
-			uint test = p[i + j * SURFWIDTH];
-			uint og = pog[i + j * SURFWIDTH];
-
-			int r = ( ( test & 0xFF0000 ) >> 16 ) - ( ( og & 0xFF0000 ) >> 16 );
-			int g = ( ( test & 0x00FF00 ) >> 8 ) - ( ( og & 0x00FF00 ) >> 8 );
-			int b = ( test & 0x0000FF ) - ( og & 0x0000FF );
-
-			uint fit = abs( r ) + abs( g ) + abs( b );
-			sum += fit;
-		}
+	for ( int i = 0; i < ( SURFWIDTH * SURFHEIGHT ); i++ )
+		sum += clOutput[i];
 
 	return sum;
 }
@@ -247,9 +249,8 @@ void PictureMutate( int index )
 
 	DrawScene( screens[index], index );
 
-	fitness[index] = DetermineFitness( screens[index], mainImage );
+	//fitness[index] = DetermineFitness( screens[index], mainImage );
 }
-
 
 void BestFit()
 {
@@ -260,21 +261,21 @@ void BestFit()
 	}
 }
 
-static int *clOutput = 0;
-static Kernel *myKernel;
-static Buffer *outputBuffer;
-
 void Game::Init()
 {
-	clOutput = new int[SURFWIDTH * SURFHEIGHT];
+	clOutput = new uint[SURFWIDTH * SURFHEIGHT];
+	clInputOG = new uint[SURFWIDTH * SURFHEIGHT];
+	clInputTest = new uint[SURFWIDTH * SURFHEIGHT];
+
 	myKernel = new Kernel( "programs/program.cl", "myKernel" );
 
 	outputBuffer = new Buffer( SURFHEIGHT * SURFWIDTH, Buffer::DEFAULT, clOutput );
-	myKernel->SetArgument( 0, outputBuffer );
+	inputOGBuffer = new Buffer( SURFHEIGHT * SURFWIDTH, Buffer::DEFAULT, clInputOG );
+	inputTestBuffer = new Buffer( SURFHEIGHT * SURFWIDTH, Buffer::DEFAULT, clInputTest );
 
-	myKernel->Run( 100 );
-	outputBuffer->CopyFromDevice();
-	
+	//myKernel->SetArgument( 0, outputBuffer );
+	//myKernel->SetArgument( 1, inputOGBuffer );
+	//myKernel->SetArgument( 2, inputTestBuffer );
 
 	mainImage = new Surface( SURFWIDTH, SURFWIDTH );
 	copySprite.SetFrame( 0 );
@@ -312,10 +313,8 @@ void Game::Init()
 			trindex += 6;
 		}
 
-
-
 	//Color init
-	if ( HEADSTART ) 
+	if ( HEADSTART )
 	{
 		copySprite.Draw( mainImage, 0, 0 );
 		pt q1, q2, q3, avg, t1, t2, t3;
@@ -324,13 +323,13 @@ void Game::Init()
 		Pixel *px = mainImage->GetBuffer();
 
 		//Take three spots in a triangle, take the colors, average the color.
-		for ( int i = 0; i < TRIANGLES; i++ ) 
+		for ( int i = 0; i < TRIANGLES; i++ )
 		{
 			q1 = vertices[0][triIndexes[i * 3]];
 			q2 = vertices[0][triIndexes[i * 3 + 1]];
 			q3 = vertices[0][triIndexes[i * 3 + 2]];
-			
-			avg = (q1 + q2 + q3) / 3;
+
+			avg = ( q1 + q2 + q3 ) / 3;
 			t1 = ( avg + q1 ) / 2;
 			t2 = ( avg + q2 ) / 2;
 			t3 = ( avg + q3 ) / 2;
@@ -357,7 +356,6 @@ void Game::Init()
 			for ( int j = 0; j < SCREENS; j++ )
 				colors[j][i] = c;
 		}
-
 	}
 }
 
@@ -378,17 +376,20 @@ void Game::Tick( float deltaTime )
 	RestoreBackup();
 
 	int k = 0;
-	for ( int i = 0; i < THREADS; i++ ) 
+	for ( int i = 0; i < THREADS; i++ )
 	{
 		if ( i == currentBest ) k++; //Skip the best
 
-		threads[i] = thread( PictureMutate, i + k);
+		threads[i] = thread( PictureMutate, i + k );
 	}
 
 	for ( int i = 0; i < THREADS; i++ )
 		threads[i].join();
 
 	//CreateBackup( BestFit() );
+	for ( int i = 0; i < THREADS; i++ )
+		fitness[i] = DetermineFitness( screens[i], mainImage );
+
 
 	BestFit();
 
