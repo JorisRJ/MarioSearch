@@ -8,14 +8,17 @@
 static Sprite copySprite( new Surface( "assets/bridge.png" ), 1 );
 static int frame = 0;
 
-constexpr uint TrWH = 64;
-constexpr uint VertWH = TrWH + 1;
-constexpr uint VertCount = VertWH * VertWH;
-constexpr uint TRIANGLES = TrWH * TrWH * 2;
+constexpr uint TrWidth = 64;
+constexpr uint TrHeight = 64;
+constexpr uint VertWidth = TrWidth + 1;
+constexpr uint VertHeight = TrHeight + 1;
+constexpr uint VertCount = VertWidth * VertHeight;
+constexpr uint TRIANGLES = TrWidth * TrHeight * 2;
 constexpr uint THREADS = 4; //KIEK UIT, groter dan 32 crasht ie ivm seeds
 constexpr uint SCREENS = THREADS + 1;
 constexpr uint MUTATES = 2;
 constexpr int SURFWIDTH = 800;
+constexpr int SURFHEIGHT = 800;
 
 constexpr bool HEADSTART = true;
 
@@ -33,9 +36,12 @@ pt operator / ( const pt &a, const pt &b ) { return pt( a.x / b.x, a.y / b.y ); 
 pt operator / ( const pt &a, const int &b ) { return pt( a.x / b, a.y / b ); }
 
 uint colors[SCREENS][TRIANGLES];
-
 pt vertices[SCREENS][VertCount];
-int triIndexes[TRIANGLES * 3];
+int triIndexes[TRIANGLES * 3]; 
+
+//uint *color = (uint *)MALLOC64( SCREENS * TRIANGLES * sizeof( uint ) );
+//pt *vertices = (pt *)MALLOC64( SCREENS * VertCount * sizeof( pt ) );
+//int *triIndexes = (int *)MALLOC64( TRIANGLES * 3 * sizeof( int ) );
 
 int currentBest = THREADS;
 
@@ -47,21 +53,6 @@ uint seeds[33] = {0x1f24df53, 0x3d00f1e2, 0x20edba0f, 0xcf824a02, 0x22f70086, 0x
 				0x9c97cf0c, 0x27aafd26, 0xd67ebf99, 0x351b9578, 0x046f1558, 0xfc42a388, 0x83e611e7, 0x39a71f50, 0x85db87e1,
 				0xe34c5e62, 0x4b29382d, 0x2f4b8c20, 0xfba53b71, 0xf62da6cd, 0xdac429bf};
 
-
-/*void CreateBackup( int index )
-{
-	if ( index == THREADS ) return;
-
-	for ( int i = 0; i < VertCount; i++ )
-	{
-		vertices[THREADS][i] = vertices[index][i];
-	}
-
-	for ( int i = 0; i < TRIANGLES; i++ )
-		colors[THREADS][i] = colors[index][i];
-
-	fitness[THREADS] = fitness[index];
-}*/
 
 uint XorShift( int index )
 {
@@ -98,7 +89,7 @@ uint DetermineFitness( Surface *surf, Surface *ogpic )
 	uint sum = 0;
 
 	for ( int i = 0; i < SURFWIDTH; i++ )
-		for ( int j = 0; j < SURFWIDTH; j++ )
+		for ( int j = 0; j < SURFHEIGHT; j++ )
 		{
 			uint test = p[i + j * SURFWIDTH];
 			uint og = pog[i + j * SURFWIDTH];
@@ -125,7 +116,7 @@ void Mutate( int index )
 		tri = (int)Rfloat( index, VertCount );
 		displacement = pt( Rfloat( index, 6 ) - 3, Rfloat( index, 6 ) - 3 );
 		ogpos = vertices[index][tri];
-		newpos = pt( clamp( ogpos.x + displacement.x, 0, SURFWIDTH - 1 ), clamp( ogpos.y + displacement.y, 0, SURFWIDTH - 1 ) );
+		newpos = pt( clamp( ogpos.x + displacement.x, 0, SURFWIDTH - 1 ), clamp( ogpos.y + displacement.y, 0, SURFHEIGHT - 1 ) );
 		vertices[index][tri] = newpos;
 
 		break;
@@ -184,10 +175,6 @@ void DrawTriangle( pt q1, pt q2, pt q3, uint col, Surface *screen, int width )
 		mid = q2;
 		bot = q1;
 	}
-
-	/*float left, right;
-	left = min( q1.x, min(q2.x, q3.x) );
-	right = max( q1.x, max(q2.x, q3.x) );*/
 
 	Pixel *sc = screen->GetBuffer();
 
@@ -260,7 +247,7 @@ void BestFit()
 
 void Game::Init()
 {
-	mainImage = new Surface( SURFWIDTH, SURFWIDTH );
+	mainImage = new Surface( SURFWIDTH, SURFHEIGHT );
 	copySprite.SetFrame( 0 );
 
 	//Screens init
@@ -271,28 +258,28 @@ void Game::Init()
 	}
 
 	//Calculate all the vertices
-	for ( float y = 0; y < VertWH; y++ )
-		for ( float x = 0; x < VertWH; x++ )
+	for ( float y = 0; y < VertHeight; y++ )
+		for ( float x = 0; x < VertWidth; x++ )
 		{
-			pt vert = pt( x / (float)TrWH * (float)( SURFWIDTH - 1 ), y / (float)TrWH * (float)( SURFWIDTH - 1 ) );
+			pt vert = pt( x / (float)TrWidth * (float)( SURFWIDTH - 1 ), y / (float)TrHeight * (float)( SURFHEIGHT - 1 ) );
 			for ( int i = 0; i < SCREENS; i++ )
-				vertices[i][(int)( x + y * VertWH )] = vert;
+				vertices[i][(int)( x + y * VertWidth )] = vert;
 		}
 
 	//Attach the triangles to the vertices
 	int trindex = 0;
-	for ( int y = 0; y < TrWH; y++ )
-		for ( int x = 0; x < TrWH; x++ ) //Triangle indexes, two triangles per square: first =  topleft, topright, botleft; second = topright, botleft, botright
+	for ( int y = 0; y < TrHeight; y++ )
+		for ( int x = 0; x < TrWidth; x++ ) //Triangle indexes, two triangles per square: first =  topleft, topright, botleft; second = topright, botleft, botright
 		{
 			//Triangle one (topleft)
-			triIndexes[trindex] = x + y * VertWH;
-			triIndexes[trindex + 1] = x + 1 + y * VertWH;
-			triIndexes[trindex + 2] = x + ( y + 1 ) * VertWH;
+			triIndexes[trindex] = x + y * VertWidth;
+			triIndexes[trindex + 1] = x + 1 + y * VertWidth;
+			triIndexes[trindex + 2] = x + ( y + 1 ) * VertWidth;
 
 			//Triangle one (botright)
-			triIndexes[trindex + 3] = x + 1 + y * VertWH;
-			triIndexes[trindex + 4] = x + ( y + 1 ) * VertWH;
-			triIndexes[trindex + 5] = x + 1 + ( y + 1 ) * VertWH;
+			triIndexes[trindex + 3] = x + 1 + y * VertWidth;
+			triIndexes[trindex + 4] = x + ( y + 1 ) * VertWidth;
+			triIndexes[trindex + 5] = x + 1 + ( y + 1 ) * VertWidth;
 			trindex += 6;
 		}
 
