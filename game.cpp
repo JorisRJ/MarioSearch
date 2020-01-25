@@ -539,6 +539,12 @@ void Game::Tick( float deltaTime )
 
 	//DrawToFinalScreen( screen, currentBest );//werkt niet met nieuwe methode
 	DrawScene( screen, currentBest, SCRWIDTH ); //werkt wel met nieuwe methode
+	/*
+	wss: eerst de 6 veranderde triangles naar een buffer schrijven dan pas fitness berekenen
+	ipv: direct de nieuwe kleur min de col uit de buffer.
+
+	*/
+
 	copySprite.Draw( screen, SURFWIDTH, 0 );
 
 	currentFitness -= fitGain[currentBest];
