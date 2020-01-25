@@ -16,7 +16,7 @@ constexpr uint VertCount = VertWidth * VertHeight;
 constexpr uint TRIANGLES = TrWidth * TrHeight * 2;
 constexpr uint THREADS = 4; //KIEK UIT, groter dan 32 crasht ie ivm seeds
 constexpr uint SCREENS = THREADS + 1;
-constexpr uint MUTATES = 2;
+constexpr uint MUTATES = 1;
 constexpr int SURFWIDTH = 800;
 constexpr int SURFHEIGHT = 800;
 
@@ -35,13 +35,13 @@ pt operator + ( const pt &a, const pt &b ) { return pt( a.x + b.x, a.y + b.y ); 
 pt operator / ( const pt &a, const pt &b ) { return pt( a.x / b.x, a.y / b.y ); }
 pt operator / ( const pt &a, const int &b ) { return pt( a.x / b, a.y / b ); }
 
-uint colors[SCREENS][TRIANGLES];
-pt vertices[SCREENS][VertCount];
-int triIndexes[TRIANGLES * 3]; 
+//uint colors[SCREENS][TRIANGLES];
+//pt vertices[SCREENS][VertCount];
+//int triIndexes[TRIANGLES * 3]; 
 
-//uint *color = (uint *)MALLOC64( SCREENS * TRIANGLES * sizeof( uint ) );
-//pt *vertices = (pt *)MALLOC64( SCREENS * VertCount * sizeof( pt ) );
-//int *triIndexes = (int *)MALLOC64( TRIANGLES * 3 * sizeof( int ) );
+uint *colors = (uint *)MALLOC64( SCREENS * TRIANGLES * sizeof( uint ) );
+pt *vertices = (pt *)MALLOC64( SCREENS * VertCount * sizeof( pt ) );
+int *triIndexes = (int *)MALLOC64( TRIANGLES * 3 * sizeof( int ) );
 
 int currentBest = THREADS;
 
@@ -70,7 +70,7 @@ void RestoreBackup()
 	{
 		if ( j == currentBest ) continue;
 		for ( int i = 0; i < VertCount; i++ )
-			vertices[j][i] = vertices[currentBest][i];
+			vertices[j * VertCount + i] = vertices[currentBest * VertCount + i];
 	}
 
 
@@ -78,7 +78,7 @@ void RestoreBackup()
 	{
 		if ( j == currentBest ) continue;
 		for (int i = 0; i < TRIANGLES; i++)
-			colors[j][i] = colors[currentBest][i];
+			colors[j * TRIANGLES + i] = colors[currentBest * TRIANGLES + i];
 	}
 }
 
@@ -115,18 +115,18 @@ void Mutate( int index )
 		//Displace
 		tri = (int)Rfloat( index, VertCount );
 		displacement = pt( Rfloat( index, 6 ) - 3, Rfloat( index, 6 ) - 3 );
-		ogpos = vertices[index][tri];
+		ogpos = vertices[index * VertCount + tri];
 		newpos = pt( clamp( ogpos.x + displacement.x, 0, SURFWIDTH - 1 ), clamp( ogpos.y + displacement.y, 0, SURFHEIGHT - 1 ) );
-		vertices[index][tri] = newpos;
+		vertices[index * VertCount + tri] = newpos;
 
 		break;
 	case 1:
 		//reroll color
-		colors[index][(int)Rfloat( index, TRIANGLES )] = XorShift( index );
+		colors[index * TRIANGLES + ( int ) Rfloat( index, TRIANGLES )] = XorShift( index );
 		break;
 	case 2:
 		//slight color adjust
-		colors[index][(int)Rfloat( index, TRIANGLES )] += ( ( (int)( Rfloat( index, 10 ) - 5 ) << 16 ) + ( (int)( Rfloat( index, 10 ) - 5 ) << 8 ) + (int)( Rfloat( index, 10 ) - 5 ) );
+		colors[index * TRIANGLES + ( int ) Rfloat( index, TRIANGLES )] += ( ( (int)( Rfloat( index, 10 ) - 5 ) << 16 ) + ( (int)( Rfloat( index, 10 ) - 5 ) << 8 ) + (int)( Rfloat( index, 10 ) - 5 ) );
 		break;
 	}
 }
@@ -221,7 +221,7 @@ void DrawScene( Surface *screen, int index, int width = SURFWIDTH )
 	screen->Clear( 0 );
 
 	for ( int i = 0; i < TRIANGLES; i++ )
-		DrawTriangle( vertices[index][triIndexes[i * 3]], vertices[index][triIndexes[i * 3 + 1]], vertices[index][triIndexes[i * 3 + 2]], colors[index][i], screen, width );
+		DrawTriangle( vertices[index * VertCount + triIndexes[i * 3]], vertices[index * VertCount + triIndexes[i * 3 + 1]], vertices[index * VertCount + triIndexes[i * 3 + 2]], colors[index * TRIANGLES + i], screen, width );
 }
 
 void PictureMutate( int index )
@@ -263,7 +263,7 @@ void Game::Init()
 		{
 			pt vert = pt( x / (float)TrWidth * (float)( SURFWIDTH - 1 ), y / (float)TrHeight * (float)( SURFHEIGHT - 1 ) );
 			for ( int i = 0; i < SCREENS; i++ )
-				vertices[i][(int)( x + y * VertWidth )] = vert;
+				vertices[i * VertCount + (int)( x + y * VertWidth )] = vert;
 		}
 
 	//Attach the triangles to the vertices
@@ -297,9 +297,9 @@ void Game::Init()
 		//Take three spots in a triangle, take the colors, average the color.
 		for ( int i = 0; i < TRIANGLES; i++ ) 
 		{
-			q1 = vertices[0][triIndexes[i * 3]];
-			q2 = vertices[0][triIndexes[i * 3 + 1]];
-			q3 = vertices[0][triIndexes[i * 3 + 2]];
+			q1 = vertices[triIndexes[i * 3]];
+			q2 = vertices[triIndexes[i * 3 + 1]];
+			q3 = vertices[triIndexes[i * 3 + 2]];
 			
 			avg = (q1 + q2 + q3) / 3;
 			t1 = ( avg + q1 ) / 2;
@@ -317,7 +317,7 @@ void Game::Init()
 			cf = ( r / 3 << 16 ) + ( g / 3 << 8 ) + b / 3;
 
 			for ( int j = 0; j < SCREENS; j++ )
-				colors[j][i] = cf;
+				colors[j * TRIANGLES + i] = cf;
 		}
 	}
 	else
@@ -326,10 +326,24 @@ void Game::Init()
 		{
 			uint c = XorShift( 0 );
 			for ( int j = 0; j < SCREENS; j++ )
-				colors[j][i] = c;
+				colors[j * TRIANGLES + i] = c;
 		}
 
 	}
+
+	//only needs to be drawn once
+	mainImage->Clear( 0 );
+	copySprite.Draw( mainImage, 0, 0 );
+}
+
+void DrawToFinalScreen(Surface* screen, int index)
+{
+	Pixel *px1 = screen->GetBuffer();
+	Pixel *px2 = screens[index]->GetBuffer();
+
+	for ( int y = 0; y < SURFHEIGHT; y++ )
+		for ( int x = 0; x < SURFWIDTH; x++ )
+			px1[y * SCRWIDTH + x] = px2[y * SURFWIDTH + x];
 }
 
 // -----------------------------------------------------------
@@ -343,8 +357,8 @@ void Game::Shutdown()
 // -----------------------------------------------------------
 void Game::Tick( float deltaTime )
 {
-	mainImage->Clear( 0 );
-	copySprite.Draw( mainImage, 0, 0 );
+	/*mainImage->Clear( 0 );
+	copySprite.Draw( mainImage, 0, 0 );*/
 
 	RestoreBackup();
 
@@ -363,7 +377,8 @@ void Game::Tick( float deltaTime )
 
 	BestFit();
 
-	DrawScene( screen, currentBest, SCRWIDTH );
+	DrawToFinalScreen( screen, currentBest );
+	//DrawScene( screen, currentBest, SCRWIDTH ); //DEZE KAN DIRECT UIT BITMAP
 	copySprite.Draw( screen, SURFWIDTH, 0 );
 
 	printf( "%u\n", fitness[currentBest] );
