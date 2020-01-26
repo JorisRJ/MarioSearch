@@ -204,85 +204,6 @@ uint SingleTriangleFitness( pt q1, pt q2, pt q3, uint col, Surface *screen, int 
 	return sum;
 }
 
-uint DisplacementTriangleFitness( int vertex, int index )
-{
-	uint fitness = 0;
-	int vertx = vertex % VertWidth;
-	int verty = vertex / VertWidth;
-	int displacedTriangles[6] =
-		{
-			2 * vertx - 1 + 2 * ( verty - 1 ) * TrWidth, //linksboven
-			2 * vertx + 2 * ( verty - 1 ) * TrWidth,	 //middenboven
-			2 * vertx + 1 + 2 * ( verty - 1 ) * TrWidth, //rechtsboven
-			2 * vertx - 2 + 2 * verty * TrWidth,		 //linksonder
-			2 * vertx - 1 + 2 * verty * TrWidth,		 //middenonder
-			2 * vertx + 2 * verty * TrWidth,			 //rechtsonder
-		};
-
-	int i;
-	for ( int j = 0; j < 6; j++ )
-	{
-		i = displacedTriangles[j];
-		fitness += SingleTriangleFitness( vertices[index * VertCount + triIndexes[i * 3]], vertices[index * VertCount + triIndexes[i * 3 + 1]], vertices[index * VertCount + triIndexes[i * 3 + 2]], colors[index * TRIANGLES + i], mainImage, SURFWIDTH );
-	}
-
-	return fitness;
-}
-
-void Mutate( int index )
-{
-	int tri, oldFit, newFit, triangle;
-	pt displacement, ogpos, newpos;
-	switch ( (int)Rfloat( index, 3 ) )
-	{
-	case 0:
-		//Displace
-
-		while ( true )
-		{
-			tri = (int)Rfloat( index, VertCount );
-			if ( tri > VertWidth && tri < VertCount - VertWidth )
-			{
-				int exc = tri % VertWidth;
-				if ( exc != 0 && exc != VertWidth - 1 )
-					break;
-			}
-		}
-
-		oldFit = DisplacementTriangleFitness( tri, index );
-
-		displacement = pt( Rfloat( index, 6 ) - 3, Rfloat( index, 6 ) - 3 );
-		ogpos = vertices[index * VertCount + tri];
-		newpos = pt( clamp( ogpos.x + displacement.x, 0, SURFWIDTH - 1 ), clamp( ogpos.y + displacement.y, 0, SURFHEIGHT - 1 ) );
-		vertices[index * VertCount + tri] = newpos;
-
-		newFit = DisplacementTriangleFitness( tri, index );
-		fitGain[index] += ( oldFit - newFit );
-
-		break;
-	case 1:
-		//reroll color
-		triangle = (int)Rfloat( index, TRIANGLES );
-		oldFit = SingleTriangleFitness( vertices[index * VertCount + triIndexes[triangle * 3]], vertices[index * VertCount + triIndexes[triangle * 3 + 1]], vertices[index * VertCount + triIndexes[triangle * 3 + 2]], colors[index * TRIANGLES + triangle], mainImage, SURFWIDTH );
-
-		colors[index * TRIANGLES + triangle] = XorShift( index );
-
-		newFit = SingleTriangleFitness( vertices[index * VertCount + triIndexes[triangle * 3]], vertices[index * VertCount + triIndexes[triangle * 3 + 1]], vertices[index * VertCount + triIndexes[triangle * 3 + 2]], colors[index * TRIANGLES + triangle], mainImage, SURFWIDTH );
-		fitGain[index] += ( oldFit - newFit );
-		break;
-	case 2:
-		//slight color adjust
-		triangle = (int)Rfloat( index, TRIANGLES );
-		oldFit = SingleTriangleFitness( vertices[index * VertCount + triIndexes[triangle * 3]], vertices[index * VertCount + triIndexes[triangle * 3 + 1]], vertices[index * VertCount + triIndexes[triangle * 3 + 2]], colors[index * TRIANGLES + triangle], mainImage, SURFWIDTH );
-
-		colors[index * TRIANGLES + (int)Rfloat( index, TRIANGLES )] += ( ( (int)( Rfloat( index, 10 ) - 5 ) << 16 ) + ( (int)( Rfloat( index, 10 ) - 5 ) << 8 ) + (int)( Rfloat( index, 10 ) - 5 ) );
-
-		newFit = SingleTriangleFitness( vertices[index * VertCount + triIndexes[triangle * 3]], vertices[index * VertCount + triIndexes[triangle * 3 + 1]], vertices[index * VertCount + triIndexes[triangle * 3 + 2]], colors[index * TRIANGLES + triangle], mainImage, SURFWIDTH );
-		fitGain[index] += ( oldFit - newFit );
-		break;
-	}
-}
-
 void DrawTriangle( pt q1, pt q2, pt q3, uint col, Surface *screen, int width )
 {
 	pt top, mid, bot;
@@ -368,6 +289,122 @@ void DrawTriangle( pt q1, pt q2, pt q3, uint col, Surface *screen, int width )
 	}
 }
 
+uint DisplacementTriangleFitness( int vertex, int index )
+{
+	uint fitness = 0;
+	int vertx = vertex % VertWidth;
+	int verty = vertex / VertWidth;
+
+	int displacedTriangles[6] =
+		{
+			2 * vertx - 1 + 2 * ( verty - 1 ) * TrWidth, //linksboven
+			2 * vertx + 2 * ( verty - 1 ) * TrWidth,	 //middenboven
+			2 * vertx + 1 + 2 * ( verty - 1 ) * TrWidth, //rechtsboven
+			2 * vertx - 2 + 2 * verty * TrWidth,		 //linksonder
+			2 * vertx - 1 + 2 * verty * TrWidth,		 //middenonder
+			2 * vertx + 2 * verty * TrWidth,			 //rechtsonder
+		};
+
+	pt adjVertices[7] = 
+		{
+			vertices[vertex], //midmid
+			vertices[vertex - 1], //linksmid
+			vertices[vertex - VertWidth], //midboven
+			vertices[vertex - VertWidth + 1], //rechtsboven
+			vertices[vertex + 1], //midlinks
+			vertices[vertex + VertWidth], //midonder
+			vertices[vertex + VertWidth - 1], //linksonder
+		};
+
+	int minx = adjVertices[0].x, maxx = adjVertices[0].x, miny = adjVertices[0].y, maxy = adjVertices[0].y;
+
+	for (int i = 1; i < 7; i++)
+	{
+		if ( adjVertices[i].x < minx )
+			minx = adjVertices[i].x;
+
+		if ( adjVertices[i].x > maxx )
+			maxx = adjVertices[i].x;
+
+		if ( adjVertices[i].y < miny )
+			miny = adjVertices[i].y;
+
+		if ( adjVertices[i].y > maxy )
+			maxy = adjVertices[i].y;
+	}
+
+	int i;
+	for ( int j = 0; j < 6; j++ )
+	{
+		i = displacedTriangles[j];
+		DrawTriangle( vertices[index * VertCount + triIndexes[i * 3]], vertices[index * VertCount + triIndexes[i * 3 + 1]], vertices[index * VertCount + triIndexes[i * 3 + 2]], colors[index * TRIANGLES + i], screens[index], SURFWIDTH );
+		//fitness += SingleTriangleFitness( vertices[index * VertCount + triIndexes[i * 3]], vertices[index * VertCount + triIndexes[i * 3 + 1]], vertices[index * VertCount + triIndexes[i * 3 + 2]], colors[index * TRIANGLES + i], mainImage, SURFWIDTH );
+	}
+
+	Pixel *og = mainImage->GetBuffer();
+	Pixel *test = screens[index]->GetBuffer();
+
+	for ( int y = miny; y < maxy; y++ )
+		for ( int x = minx; x < maxx; x++ )
+			fitness += AbsColDifference( og[x + y * SURFWIDTH], test[x + y * SURFWIDTH] );
+
+	return fitness;
+}
+
+void Mutate( int index )
+{
+	int tri, oldFit, newFit, triangle;
+	pt displacement, ogpos, newpos;
+	switch ( (int)Rfloat( index, 3 ) )
+	{
+	case 0:
+		//Displace
+
+		while ( true )
+		{
+			tri = (int)Rfloat( index, VertCount );
+			if ( tri > VertWidth && tri < VertCount - VertWidth )
+			{
+				int exc = tri % VertWidth;
+				if ( exc != 0 && exc != VertWidth - 1 )
+					break;
+			}
+		}
+
+		oldFit = DisplacementTriangleFitness( tri, index );
+
+		displacement = pt( Rfloat( index, 6 ) - 3, Rfloat( index, 6 ) - 3 );
+		ogpos = vertices[index * VertCount + tri];
+		newpos = pt( clamp( ogpos.x + displacement.x, 0, SURFWIDTH - 1 ), clamp( ogpos.y + displacement.y, 0, SURFHEIGHT - 1 ) );
+		vertices[index * VertCount + tri] = newpos;
+
+		newFit = DisplacementTriangleFitness( tri, index );
+		fitGain[index] += ( oldFit - newFit );
+
+		break;
+	case 1:
+		//reroll color
+		triangle = (int)Rfloat( index, TRIANGLES );
+		oldFit = SingleTriangleFitness( vertices[index * VertCount + triIndexes[triangle * 3]], vertices[index * VertCount + triIndexes[triangle * 3 + 1]], vertices[index * VertCount + triIndexes[triangle * 3 + 2]], colors[index * TRIANGLES + triangle], mainImage, SURFWIDTH );
+
+		colors[index * TRIANGLES + triangle] = XorShift( index );
+
+		newFit = SingleTriangleFitness( vertices[index * VertCount + triIndexes[triangle * 3]], vertices[index * VertCount + triIndexes[triangle * 3 + 1]], vertices[index * VertCount + triIndexes[triangle * 3 + 2]], colors[index * TRIANGLES + triangle], mainImage, SURFWIDTH );
+		fitGain[index] += ( oldFit - newFit );
+		break;
+	case 2:
+		//slight color adjust
+		triangle = (int)Rfloat( index, TRIANGLES );
+		oldFit = SingleTriangleFitness( vertices[index * VertCount + triIndexes[triangle * 3]], vertices[index * VertCount + triIndexes[triangle * 3 + 1]], vertices[index * VertCount + triIndexes[triangle * 3 + 2]], colors[index * TRIANGLES + triangle], mainImage, SURFWIDTH );
+
+		colors[index * TRIANGLES + (int)Rfloat( index, TRIANGLES )] += ( ( (int)( Rfloat( index, 10 ) - 5 ) << 16 ) + ( (int)( Rfloat( index, 10 ) - 5 ) << 8 ) + (int)( Rfloat( index, 10 ) - 5 ) );
+
+		newFit = SingleTriangleFitness( vertices[index * VertCount + triIndexes[triangle * 3]], vertices[index * VertCount + triIndexes[triangle * 3 + 1]], vertices[index * VertCount + triIndexes[triangle * 3 + 2]], colors[index * TRIANGLES + triangle], mainImage, SURFWIDTH );
+		fitGain[index] += ( oldFit - newFit );
+		break;
+	}
+}
+
 void DrawScene( Surface *screen, int index, int width = SURFWIDTH )
 {
 	screen->Clear( 0 );
@@ -378,7 +415,8 @@ void DrawScene( Surface *screen, int index, int width = SURFWIDTH )
 
 void PictureMutate( int index )
 {
-	float imax = Rfloat( index, MUTATES ) + 1;
+	//float imax = Rfloat( index, MUTATES ) + 1;
+	float imax = MUTATES;
 	for ( float i = 0; i < imax; i++ )
 		Mutate( index );
 
