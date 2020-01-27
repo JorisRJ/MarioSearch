@@ -74,15 +74,17 @@ void RestoreBackup()
 	for ( int j = 0; j < SCREENS; j++ )
 	{
 		if ( j == currentBest ) continue;
-		for ( int i = 0; i < VertCount; i++ )
-			vertices[j * VertCount + i] = vertices[currentBest * VertCount + i];
+		memcpy( &vertices[j * VertCount], &vertices[currentBest * VertCount], VertCount * sizeof(pt) );
+		//for ( int i = 0; i < VertCount; i++ )
+		//	vertices[j * VertCount + i] = vertices[currentBest * VertCount + i];
 	}
 
 	for ( int j = 0; j < SCREENS; j++ )
 	{
 		if ( j == currentBest ) continue;
-		for ( int i = 0; i < TRIANGLES; i++ )
-			colors[j * TRIANGLES + i] = colors[currentBest * TRIANGLES + i];
+		memcpy( &colors[j * TRIANGLES], &colors[currentBest * TRIANGLES], TRIANGLES * sizeof(uint) );
+		/*for ( int i = 0; i < TRIANGLES; i++ )
+			colors[j * TRIANGLES + i] = colors[currentBest * TRIANGLES + i];*/
 	}
 }
 
@@ -493,11 +495,12 @@ void Game::Shutdown()
 // -----------------------------------------------------------
 // Main application tick function
 // -----------------------------------------------------------
+timer t;
 void Game::Tick( float deltaTime )
 {
 	/*mainImage->Clear( 0 );
 	copySprite.Draw( mainImage, 0, 0 );*/
-
+	t.reset();
 	for ( int i = 0; i < SCREENS; i++ )
 		fitGain[i] = 0;
 
@@ -534,7 +537,7 @@ void Game::Tick( float deltaTime )
 
 
 	currentFitness -= fitGain[currentBest];
-	printf( "%u\n", currentFitness );
+	printf( "%u --- %5.2f\n", currentFitness, 1000/t.elapsed() );
 	
 
 	//DrawTriangle( pt( 400, 2.9f ), pt( 0, 3 ), pt( 150, 150 ), 0x00FF0000, screen, 1200 );
