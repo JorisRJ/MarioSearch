@@ -218,7 +218,7 @@ uint SingleTriangleFitness( pt q1, pt q2, pt q3, uint col, Surface *screen, int 
 	Pixel *og = mainImage->GetBuffer();
 	Pixel *test = screen->GetBuffer();
 
-	for ( int y = bot; y < top; y++ )
+	for ( int y = top; y < bot; y++ )
 		for ( int x = left; x < right; x++ )
 			sum += AbsColDifference( og[x + y * SURFWIDTH], test[x + y * SURFWIDTH] );
 
@@ -291,15 +291,14 @@ void Mutate( int index )
 {
 	int tri, oldFit, newFit, triangle;
 	pt displacement, ogpos, newpos;
-	switch ( ( (int)XorShift( index ) ) % 3 )
+	switch ( (int)Rfloat( index, 3 ) )
 	{
 	case 0:
 		//Displace
 
 		while ( true )
 		{
-			//tri = (int)Rfloat( index, VertCount );
-			tri = ((int) XorShift( index )) % VertCount;
+			tri = (int)Rfloat( index, VertCount );
 			if ( tri > VertWidth && tri < VertCount - VertWidth )
 			{
 				int exc = tri % VertWidth;
@@ -310,8 +309,7 @@ void Mutate( int index )
 
 		oldFit = DisplacementTriangleFitness( tri, index );
 
-		//displacement = pt( Rfloat( index, 6 ) - 3, Rfloat( index, 6 ) - 3 );
-		displacement = pt( ( (int)XorShift( index ) ) % 6 - 3, ( (int)XorShift( index ) ) % 6 - 3 );
+		displacement = pt( Rfloat( index, 6 ) - 3, Rfloat( index, 6 ) - 3 );
 		ogpos = vertices[index * VertCount + tri];
 		newpos = pt( clamp( ogpos.x + displacement.x, 0, SURFWIDTH - 1 ), clamp( ogpos.y + displacement.y, 0, SURFHEIGHT - 1 ) );
 		vertices[index * VertCount + tri] = newpos;
@@ -322,8 +320,7 @@ void Mutate( int index )
 		break;
 	case 1:
 		//reroll color
-		//triangle = (int)Rfloat( index, TRIANGLES );
-		triangle = ( (int)XorShift( index ) ) % TRIANGLES;
+		triangle = (int)Rfloat( index, TRIANGLES );
 		oldFit = SingleTriangleFitness( vertices[index * VertCount + triIndexes[triangle * 3]], vertices[index * VertCount + triIndexes[triangle * 3 + 1]], vertices[index * VertCount + triIndexes[triangle * 3 + 2]], colors[index * TRIANGLES + triangle], mainImage, SURFWIDTH );
 
 		colors[index * TRIANGLES + triangle] = XorShift( index );
@@ -336,7 +333,7 @@ void Mutate( int index )
 		triangle = (int)Rfloat( index, TRIANGLES );
 		oldFit = SingleTriangleFitness( vertices[index * VertCount + triIndexes[triangle * 3]], vertices[index * VertCount + triIndexes[triangle * 3 + 1]], vertices[index * VertCount + triIndexes[triangle * 3 + 2]], colors[index * TRIANGLES + triangle], mainImage, SURFWIDTH );
 
-		colors[index * TRIANGLES + (int)Rfloat( index, TRIANGLES )] += ( ( ( ( (int)XorShift( index ) ) % 10 - 5 ) << 16 ) + ( ( ( (int)XorShift( index ) ) % 10 - 5 ) << 8 ) + ( (int)XorShift( index ) ) % 10 - 5 );
+		colors[index * TRIANGLES + (int)Rfloat( index, TRIANGLES )] += ( ( (int)( Rfloat( index, 10 ) - 5 ) << 16 ) + ( (int)( Rfloat( index, 10 ) - 5 ) << 8 ) + (int)( Rfloat( index, 10 ) - 5 ) );
 
 		newFit = SingleTriangleFitness( vertices[index * VertCount + triIndexes[triangle * 3]], vertices[index * VertCount + triIndexes[triangle * 3 + 1]], vertices[index * VertCount + triIndexes[triangle * 3 + 2]], colors[index * TRIANGLES + triangle], mainImage, SURFWIDTH );
 		fitGain[index] += ( oldFit - newFit );
@@ -465,8 +462,9 @@ void Game::Init()
 	mainImage->Clear( 0 );
 	copySprite.Draw( mainImage, 0, 0 );
 
+	for ( int i = 0; i < SCREENS; i++ )
+		DrawScene( screens[i], i, SURFWIDTH );
 
-	DrawScene( screens[0], 0, SURFWIDTH );
 	currentFitness = DetermineFitness( screens[0], mainImage );
 
 	//First Draw
@@ -501,7 +499,7 @@ void Game::Tick( float deltaTime )
 	for ( int i = 0; i < SCREENS; i++ )
 		fitGain[i] = 0;
 
-	RestoreBackup();
+	RestoreBackup(); //deze copy pasta nog alles
 
 	int k = 0;
 	for ( int i = 0; i < THREADS; i++ )
@@ -523,14 +521,17 @@ void Game::Tick( float deltaTime )
 	if (Xcounter == DrawEveryXFrames)
 	{
 		DrawScene( screen, currentBest, SCRWIDTH ); //werkt wel met nieuwe methode
+		/*
+		Dr zit een kleine fout in: als er een slecht iets word gedaan op (x,y) en de volgende ronde wordt er daarnaast
+		iets goed gedaan, dan wordt het slechte meegenomen in de fitness berekening, dit KAN effect hebben, weet ik niet zeker.
+		want hij kijkt alleen naar de fitness gain, maar bij een verschuiving kan het effect hebben.
+		Zodra dit scherm echter een keer de current best is geweest, wordt hij "gecleaned" en is dit opgelost. De fout is dus
+		kleiner met minder schermen (threads). 
+		Dit is geen bug maar een feature :)
+		*/
 		copySprite.Draw( screen, SURFWIDTH, 0 );
 		Xcounter = 0;
 	}
-	/*
-	wss: eerst de 6 veranderde triangles naar een buffer schrijven dan pas fitness berekenen
-	ipv: direct de nieuwe kleur min de col uit de buffer.
-
-	*/
 
 
 	currentFitness -= fitGain[currentBest];
