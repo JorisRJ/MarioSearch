@@ -5,20 +5,20 @@
 // -----------------------------------------------------------
 // Initialize the application
 // -----------------------------------------------------------
-static Sprite copySprite( new Surface( "assets/bridge.png" ), 1 );
+static Sprite copySprite( new Surface( "assets/scifi.jpg" ), 1 );
 static int frame = 0;
 
-constexpr uint TrWidth = 64;
-constexpr uint TrHeight = 64;
-constexpr uint VertWidth = TrWidth + 1;
-constexpr uint VertHeight = TrHeight + 1;
-constexpr uint VertCount = VertWidth * VertHeight;
-constexpr uint TRIANGLES = TrWidth * TrHeight * 2;
+uint TrWidth = 256;
+uint TrHeight = 256;
+uint VertWidth = TrWidth + 1;
+uint VertHeight = TrHeight + 1;
+uint VertCount = VertWidth * VertHeight;
+uint TRIANGLES = TrWidth * TrHeight * 2;
 constexpr uint THREADS = 4; //KIEK UIT, groter dan 32 crasht ie ivm seeds
 constexpr uint SCREENS = THREADS + 1;
-constexpr uint MUTATES = 1;
-constexpr int SURFWIDTH = 800;
-constexpr int SURFHEIGHT = 800;
+uint MUTATES = 1; //met nieuwe methode weet ik niet of dit al hoger dan 1 kan
+int SURFWIDTH = 1920;
+int SURFHEIGHT = 1080;
 
 constexpr bool HEADSTART = true;
 
@@ -587,6 +587,7 @@ void Game::Tick( float deltaTime )
 
 	currentFitness -= fitGain[currentBest];
 	printf( "%u\n", currentFitness );
+	
 
 	//DrawTriangle( pt( 400, 2.9f ), pt( 0, 3 ), pt( 150, 150 ), 0x00FF0000, screen, 1200 );
 }
