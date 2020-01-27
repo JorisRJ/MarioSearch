@@ -8,6 +8,9 @@
 static Sprite copySprite( new Surface( "assets/scifi.jpg" ), 1 );
 static int frame = 0;
 
+uint DrawEveryXFrames = 60;
+uint Xcounter = 0;
+
 uint TrWidth = 128;
 uint TrHeight = 96;
 uint VertWidth = TrWidth + 1;
@@ -116,24 +119,6 @@ uint AbsColDifference( uint c1, uint c2 )
 	return fit;
 }
 
-uint SingleTriangleFitness( pt q1, pt q2, pt q3, uint col, Surface *screen, int width )
-{
-	int sum = 0;
-	int top = min( {q1.y, q2.y, q3.y} );
-	int bot = max( {q1.y, q2.y, q3.y} );
-	int left = min( {q1.x, q2.x, q3.x} );
-	int right = max( {q1.x, q2.x, q3.x} );
-
-	Pixel *og = mainImage->GetBuffer();
-	Pixel *test = screen->GetBuffer();
-
-	for ( int y = bot; y < top; y++ )
-		for ( int x = left; x < right; x++ )
-			sum += AbsColDifference( og[x + y * SURFWIDTH], test[x + y * SURFWIDTH] );
-
-	return sum;
-}
-
 void DrawTriangle( pt q1, pt q2, pt q3, uint col, Surface *screen, int width )
 {
 	pt top, mid, bot;
@@ -219,6 +204,27 @@ void DrawTriangle( pt q1, pt q2, pt q3, uint col, Surface *screen, int width )
 	}
 }
 
+
+uint SingleTriangleFitness( pt q1, pt q2, pt q3, uint col, Surface *screen, int width )
+{
+	DrawTriangle( q1, q2, q3, col, screen, width );
+
+	int sum = 0;
+	int top = min( {q1.y, q2.y, q3.y} );
+	int bot = max( {q1.y, q2.y, q3.y} );
+	int left = min( {q1.x, q2.x, q3.x} );
+	int right = max( {q1.x, q2.x, q3.x} );
+
+	Pixel *og = mainImage->GetBuffer();
+	Pixel *test = screen->GetBuffer();
+
+	for ( int y = bot; y < top; y++ )
+		for ( int x = left; x < right; x++ )
+			sum += AbsColDifference( og[x + y * SURFWIDTH], test[x + y * SURFWIDTH] );
+
+	return sum;
+}
+
 uint DisplacementTriangleFitness( int vertex, int index )
 {
 	uint fitness = 0;
@@ -292,7 +298,8 @@ void Mutate( int index )
 
 		while ( true )
 		{
-			tri = (int)Rfloat( index, VertCount );
+			//tri = (int)Rfloat( index, VertCount );
+			tri = ((int) XorShift( index )) % VertCount;
 			if ( tri > VertWidth && tri < VertCount - VertWidth )
 			{
 				int exc = tri % VertWidth;
@@ -303,7 +310,8 @@ void Mutate( int index )
 
 		oldFit = DisplacementTriangleFitness( tri, index );
 
-		displacement = pt( Rfloat( index, 6 ) - 3, Rfloat( index, 6 ) - 3 );
+		//displacement = pt( Rfloat( index, 6 ) - 3, Rfloat( index, 6 ) - 3 );
+		displacement = pt( ( (int)XorShift( index ) ) % 6 - 3, ( (int)XorShift( index ) ) % 6 - 3 );
 		ogpos = vertices[index * VertCount + tri];
 		newpos = pt( clamp( ogpos.x + displacement.x, 0, SURFWIDTH - 1 ), clamp( ogpos.y + displacement.y, 0, SURFHEIGHT - 1 ) );
 		vertices[index * VertCount + tri] = newpos;
@@ -314,7 +322,8 @@ void Mutate( int index )
 		break;
 	case 1:
 		//reroll color
-		triangle = (int)Rfloat( index, TRIANGLES );
+		//triangle = (int)Rfloat( index, TRIANGLES );
+		triangle = ( (int)XorShift( index ) ) % TRIANGLES;
 		oldFit = SingleTriangleFitness( vertices[index * VertCount + triIndexes[triangle * 3]], vertices[index * VertCount + triIndexes[triangle * 3 + 1]], vertices[index * VertCount + triIndexes[triangle * 3 + 2]], colors[index * TRIANGLES + triangle], mainImage, SURFWIDTH );
 
 		colors[index * TRIANGLES + triangle] = XorShift( index );
@@ -327,7 +336,7 @@ void Mutate( int index )
 		triangle = (int)Rfloat( index, TRIANGLES );
 		oldFit = SingleTriangleFitness( vertices[index * VertCount + triIndexes[triangle * 3]], vertices[index * VertCount + triIndexes[triangle * 3 + 1]], vertices[index * VertCount + triIndexes[triangle * 3 + 2]], colors[index * TRIANGLES + triangle], mainImage, SURFWIDTH );
 
-		colors[index * TRIANGLES + (int)Rfloat( index, TRIANGLES )] += ( ( (int)( Rfloat( index, 10 ) - 5 ) << 16 ) + ( (int)( Rfloat( index, 10 ) - 5 ) << 8 ) + (int)( Rfloat( index, 10 ) - 5 ) );
+		colors[index * TRIANGLES + (int)Rfloat( index, TRIANGLES )] += ( ( ( ( (int)XorShift( index ) ) % 10 - 5 ) << 16 ) + ( ( ( (int)XorShift( index ) ) % 10 - 5 ) << 8 ) + ( (int)XorShift( index ) ) % 10 - 5 );
 
 		newFit = SingleTriangleFitness( vertices[index * VertCount + triIndexes[triangle * 3]], vertices[index * VertCount + triIndexes[triangle * 3 + 1]], vertices[index * VertCount + triIndexes[triangle * 3 + 2]], colors[index * TRIANGLES + triangle], mainImage, SURFWIDTH );
 		fitGain[index] += ( oldFit - newFit );
@@ -506,7 +515,12 @@ void Game::Tick( float deltaTime )
 	BestFit();
 
 	//DrawToFinalScreen( screen, currentBest );//werkt niet met nieuwe methode
-	DrawScene( screen, currentBest, SCRWIDTH ); //werkt wel met nieuwe methode
+	Xcounter++;
+	if (Xcounter == DrawEveryXFrames)
+	{
+		DrawScene( screen, currentBest, SCRWIDTH ); //werkt wel met nieuwe methode
+		Xcounter = 0;
+	}
 	/*
 	wss: eerst de 6 veranderde triangles naar een buffer schrijven dan pas fitness berekenen
 	ipv: direct de nieuwe kleur min de col uit de buffer.
