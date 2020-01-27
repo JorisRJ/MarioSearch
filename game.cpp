@@ -5,14 +5,14 @@
 // -----------------------------------------------------------
 // Initialize the application
 // -----------------------------------------------------------
-static Sprite copySprite( new Surface( "assets/scifi.jpg" ), 1 );
+static Sprite copySprite( new Surface( "assets/bridge.png" ), 1 ); //assets/scifi.jpg
 static int frame = 0;
 
 uint DrawEveryXFrames = 60;
 uint Xcounter = 0;
 
-uint TrWidth = 128;
-uint TrHeight = 96;
+uint TrWidth = 64; //128
+uint TrHeight = 64; //96
 uint VertWidth = TrWidth + 1;
 uint VertHeight = TrHeight + 1;
 uint VertCount = VertWidth * VertHeight;
@@ -20,8 +20,8 @@ uint TRIANGLES = TrWidth * TrHeight * 2;
 constexpr uint THREADS = 4; //KIEK UIT, groter dan 32 crasht ie ivm seeds
 constexpr uint SCREENS = THREADS + 1;
 uint MUTATES = 1; //met nieuwe methode weet ik niet of dit al hoger dan 1 kan
-int SURFWIDTH = 1920;
-int SURFHEIGHT = 1080;
+int SURFWIDTH = 800; //1920
+int SURFHEIGHT = 800; //1080
 
 constexpr bool HEADSTART = true;
 
@@ -291,7 +291,7 @@ void Mutate( int index )
 {
 	int tri, oldFit, newFit, triangle;
 	pt displacement, ogpos, newpos;
-	switch ( (int)Rfloat( index, 3 ) )
+	switch ( ( (int)XorShift( index ) ) % 3 )
 	{
 	case 0:
 		//Displace
@@ -468,6 +468,10 @@ void Game::Init()
 
 	DrawScene( screens[0], 0, SURFWIDTH );
 	currentFitness = DetermineFitness( screens[0], mainImage );
+
+	//First Draw
+	DrawScene( screen, currentBest, SCRWIDTH ); 
+	copySprite.Draw( screen, SURFWIDTH, 0 );
 }
 
 void DrawToFinalScreen( Surface *screen, int index )
@@ -519,6 +523,7 @@ void Game::Tick( float deltaTime )
 	if (Xcounter == DrawEveryXFrames)
 	{
 		DrawScene( screen, currentBest, SCRWIDTH ); //werkt wel met nieuwe methode
+		copySprite.Draw( screen, SURFWIDTH, 0 );
 		Xcounter = 0;
 	}
 	/*
@@ -527,7 +532,6 @@ void Game::Tick( float deltaTime )
 
 	*/
 
-	copySprite.Draw( screen, SURFWIDTH, 0 );
 
 	currentFitness -= fitGain[currentBest];
 	printf( "%u\n", currentFitness );
