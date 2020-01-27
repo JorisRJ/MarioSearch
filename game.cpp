@@ -8,8 +8,8 @@
 static Sprite copySprite( new Surface( "assets/scifi.jpg" ), 1 );
 static int frame = 0;
 
-uint TrWidth = 256;
-uint TrHeight = 256;
+uint TrWidth = 128;
+uint TrHeight = 96;
 uint VertWidth = TrWidth + 1;
 uint VertHeight = TrHeight + 1;
 uint VertCount = VertWidth * VertHeight;
@@ -118,88 +118,18 @@ uint AbsColDifference( uint c1, uint c2 )
 
 uint SingleTriangleFitness( pt q1, pt q2, pt q3, uint col, Surface *screen, int width )
 {
-	uint sum = 0;
-	pt top, mid, bot;
-	if ( q1.y < q2.y )
-		if ( q1.y < q3.y )
-		{
-			top = q1;
-			if ( q2.y < q3.y )
-			{
-				mid = q2;
-				bot = q3;
-			}
-			else
-			{
-				mid = q3;
-				bot = q2;
-			}
-		}
-		else
-		{
-			top = q3;
-			mid = q1;
-			bot = q2;
-		}
-	else if ( q2.y < q3.y )
-	{
-		top = q2;
-		if ( q1.y < q3.y )
-		{
-			mid = q1;
-			bot = q3;
-		}
-		else
-		{
-			mid = q3;
-			bot = q1;
-		}
-	}
-	else
-	{
-		top = q3;
-		mid = q2;
-		bot = q1;
-	}
+	int sum = 0;
+	int top = min( {q1.y, q2.y, q3.y} );
+	int bot = max( {q1.y, q2.y, q3.y} );
+	int left = min( {q1.x, q2.x, q3.x} );
+	int right = max( {q1.x, q2.x, q3.x} );
 
-	Pixel *sc = screen->GetBuffer();
+	Pixel *og = mainImage->GetBuffer();
+	Pixel *test = screen->GetBuffer();
 
-	float dx1 = mid.x - top.x, dx2 = bot.x - top.x, dx3 = bot.x - mid.x;
-	float dy1 = mid.y - top.y, dy2 = bot.y - top.y, dy3 = bot.y - mid.y;
-
-	if ( dy1 == 0 )
-		dy1 = 1.f;
-	if ( dy2 == 0 )
-		dy2 = 1.f;
-	if ( dy3 == 0 )
-		dy3 = 1.f;
-
-	float dxy1 = dx1 / dy1, dxy2 = dx2 / dy2, dxy3 = dx3 / dy3;
-
-	float x1, x2;
-	int y = top.y;
-
-	if ( top.y == mid.y )
-		x1 = min( top.x, mid.x ), x2 = max( top.x, mid.x );
-	else
-		x1 = top.x, x2 = top.x;
-
-	for ( ; y <= mid.y; y++ )
-	{
-
-		for ( int x = min( x1, x2 ); x < max( x1, x2 ); x++ )
-			sum += AbsColDifference( sc[x + y * width], col ); //goeie kans dat dit hem klotehard bottleneckt
-		if ( y < mid.y )
-			x1 += dxy1, x2 += dxy2;
-	}
-
-	for ( ; y <= bot.y; y++ )
-	{
-		for ( int x = min( x1, x2 ); x < max( x1, x2 ); x++ )
-			sum += AbsColDifference( sc[x + y * width], col );
-		if ( y < bot.y )
-			x1 += dxy3, x2 += dxy2;
-	}
+	for ( int y = bot; y < top; y++ )
+		for ( int x = left; x < right; x++ )
+			sum += AbsColDifference( og[x + y * SURFWIDTH], test[x + y * SURFWIDTH] );
 
 	return sum;
 }
