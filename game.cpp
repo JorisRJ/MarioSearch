@@ -7,7 +7,7 @@
 //https://www.reddit.com/r/generative/comments/ez9q65/how_to_transform_a_painting_into_a_particle_field/?utm_source=share&utm_medium=web2x
 // -----------------------------------------------------------
 
-static Sprite theImage( new Surface( "assets/galaxy.jpg" ), 1 );
+static Sprite theImage( new Surface( "assets/123.jpg" ), 1 );
 constexpr int PARTICLES = 100000;
 constexpr float fade = 31.f / 32.f;
 Surface *mainImage;
