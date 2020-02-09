@@ -7,7 +7,9 @@
 //https://www.reddit.com/r/generative/comments/ez9q65/how_to_transform_a_painting_into_a_particle_field/?utm_source=share&utm_medium=web2x
 // -----------------------------------------------------------
 
-static Sprite theImage( new Surface( "assets/jhv.jpg" ), 1 );
+#define BlackAndWhite false
+
+static Sprite theImage( new Surface( "assets/galaxy2.jpg" ), 1 );
 constexpr int PARTICLES = 100000;
 constexpr float fade = 31.f / 32.f;
 Surface *mainImage;
@@ -82,16 +84,18 @@ void Game::Tick( float deltaTime )
 {
 	Pixel *p = screen->GetBuffer();
 	Pixel *lum = mainImage->GetBuffer();
-
+	Pixel *img = theImage.GetBuffer();
 	for ( int y = 0; y < SCRHEIGHT; y++ )
 	{
 		for ( int x = 0; x < SCRWIDTH; x++ )
 		{
 			uint col = p[x + y * SCRWIDTH];
+			int r = ( ( col & 0xFF0000 ) >> 16 ) * fade;
+			int g = ( ( col & 0x00FF00 ) >> 8 ) * fade;
 			int b = (col & 0x0000FF) * fade;
 
 
-			p[x + y * SCRWIDTH] = (b << 16) + (b << 8) + b;
+			p[x + y * SCRWIDTH] = ( r << 16 ) + ( g << 8 ) + b;
 
 			//p[x + y * SCRWIDTH] = lum[x + y * SCRWIDTH];
 		}
@@ -108,8 +112,11 @@ void Game::Tick( float deltaTime )
 			particles[i].x = 0;
 			particles[i].y = XorShift() % SCRHEIGHT;
 		}
-
+#if BlackAndWhite
 		p[(int)( particles[i].x + particles[i].y * SCRWIDTH )] = lum[(int)( particles[i].x + particles[i].y * SCRWIDTH )];
+#else
+		p[(int)( particles[i].x + particles[i].y * SCRWIDTH )] = img[(int)( particles[i].x + particles[i].y * SCRWIDTH )];
+#endif
 	}
 
 }
