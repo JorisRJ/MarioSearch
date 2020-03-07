@@ -9,8 +9,8 @@
 
 #define BlackAndWhite false
 
-static Sprite theImage( new Surface( "assets/galaxy2.jpg" ), 1 );
-constexpr int PARTICLES = 100000;
+static Sprite theImage( new Surface( "assets/300jpg.jpg" ), 1 );
+constexpr int PARTICLES = 400000;
 constexpr float fade = 31.f / 32.f;
 Surface *mainImage;
 
